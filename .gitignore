@@ -1,0 +1,5 @@
+.direnv/
+.token
+tmp
+gateway.json
+discordia.log
