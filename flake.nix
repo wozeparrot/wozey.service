@@ -1,5 +1,5 @@
 {
-  description = "aninarr dev flake";
+  description = "wozey.service dev flake";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
