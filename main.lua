@@ -19,35 +19,6 @@ client:on('messageCreate', function(message)
 
 	-- bot owner specific commands
 	if message.author == client.owner then
-		if content:sub(1, 6) == "&fplay" then
-            if message.attachment == nil then return end
-            if message.member.voiceChannel ~= nil then
-                local channel = client:getChannel(message.member.voiceChannel)
-                local connection = channel:join()
-
-                local f = fs.openSync("./tmp", "w")
-                fs.closeSync(f)
-
-                local req = https.request(message.attachment["url"], function(res)
-                    res:on("data", function (chunk)
-                        fs.appendFileSync("./tmp", chunk)
-                    end)
-                    res:on("end", function ()
-                        coroutine.wrap(function()
-                            connection:playFFmpeg("./tmp")
-                        end)()
-                    end)
-                end)
-                req:done()
-            end
-        elseif content:sub(1, 6) == "&fstop" then
-            if message.member.voiceChannel ~= nil then
-                local connection = message.guild.connection
-                connection:stopStream()
-                local channel = client:getChannel(message.member.voiceChannel)
-                channel:leave()
-            end
-		end
 	end
 end)
 
