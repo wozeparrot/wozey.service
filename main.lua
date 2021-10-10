@@ -59,8 +59,7 @@ client:on("messageCreate", function(message)
                 embed = {
                     title = feature.name,
                     description = feature.description,
-                    fields = fields,
-                    color = 0x000000
+                    fields = fields
                 }
             })
         end
@@ -69,6 +68,10 @@ end)
 
 -- Main Function
 local function main()
+    -- cleanup old runtime stuff
+    fs.rmdir("./wrun")
+    fs.mkdir("./wrun")
+
 	local token_file = io.open(".token", "r")
 	local token = token_file:read()
 	token_file:close()

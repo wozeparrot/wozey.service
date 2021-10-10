@@ -1,7 +1,9 @@
 .direnv/
 .token
 tmp
+tmp/
 gateway.json
 discordia.log
 deps/
 result
+wrun/
