@@ -7,7 +7,7 @@
     let
       overlay = final: prev: {
         wozey = rec {
-          luvi = prev.stdenv.mkDerivation rec {
+          luvi = final.stdenv.mkDerivation rec {
             pname = "luvi";
             version = "v2.12.0";
             src = prev.fetchgit {
@@ -44,7 +44,7 @@
                 sha256 = "sha256-1p67H/Na8G1OYVjRHokl/VeWJeyn5ssfoZZFo5kQFZQ=";
               };
             in
-            prev.writeShellScriptBin "luvit" ''
+            final.writeShellScriptBin "luvit" ''
               ${luvi}/bin/luvi ${luvitSrc} -- "$@"
             '';
 

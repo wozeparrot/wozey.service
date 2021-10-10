@@ -1,8 +1,8 @@
 --[[lit-meta
   name = "creationix/coro-http"
-  version = "3.2.0"
+  version = "3.2.3"
   dependencies = {
-    "creationix/coro-net@3.0.0",
+    "creationix/coro-net@3.3.0",
     "luvit/http-codec@3.0.0"
   }
   homepage = "https://github.com/luvit/lit/blob/master/deps/coro-http.lua"
@@ -16,11 +16,11 @@ local httpCodec = require('http-codec')
 local net = require('coro-net')
 
 local function createServer(host, port, onConnect)
-  net.createServer({
+  return net.createServer({
     host = host,
     port = port,
-    encode = httpCodec.encoder(),
-    decode = httpCodec.decoder(),
+    encoder = httpCodec.encoder,
+    decoder = httpCodec.decoder,
   }, function (read, write, socket)
     for head in read do
       local parts = {}
@@ -38,6 +38,7 @@ local function createServer(host, port, onConnect)
       write("")
       if not head.keepAlive then break end
     end
+    write()
   end)
 end
 
@@ -76,8 +77,8 @@ local function getConnection(host, port, tls, timeout)
     port = port,
     tls = tls,
     timeout = timeout,
-    encode = httpCodec.encoder(),
-    decode = httpCodec.decoder()
+    encoder = httpCodec.encoder,
+    decoder = httpCodec.decoder
   })
   return {
     socket = socket,
@@ -121,10 +122,10 @@ local function request(method, url, headers, body, customOptions)
   local req = {
     method = method,
     path = uri.path,
-    {"Host", uri.host}
   }
   local contentLength
   local chunked
+  local hasHost = false
   if headers then
     for i = 1, #headers do
       local key, value = unpack(headers[i])
@@ -133,10 +134,16 @@ local function request(method, url, headers, body, customOptions)
         contentLength = value
       elseif key == "content-encoding" and value:lower() == "chunked" then
         chunked = true
+      elseif key == "host" then
+        hasHost = true
       end
       req[#req + 1] = headers[i]
     end
   end
+  if not hasHost then
+    req[#req + 1] = {"Host", uri.host}
+  end
+
 
   if type(body) == "string" then
     if not chunked and not contentLength then
