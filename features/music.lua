@@ -1,6 +1,6 @@
 return function(client) return {
-    name = "Dynamic Voice Channels",
-    description = "Manages temporary voice channels",
+    name = "Music",
+    description = "Plays music in voice channels",
     commands = {
         ["play"] = {
             description = "queues a url for playback",
