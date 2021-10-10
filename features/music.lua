@@ -2,11 +2,11 @@ return function(client) return {
     name = "Dynamic Voice Channels",
     description = "Manages temporary voice channels",
     commands = {
-        "play" = {
+        ["play"] = {
             description = "queues a url for playback",
-            exec = function(message) {
+            exec = function(message)
                 message:reply("queued")
-            }
+            end
         }
     },
     callbacks = {

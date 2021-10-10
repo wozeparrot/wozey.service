@@ -48,7 +48,7 @@ client:on("messageCreate", function(message)
             -- generate fields for commands
             local fields = {}
             for name, command in pairs(feature.commands) do
-                commands:insert({
+                table.insert(fields, {
                     name = prefix..name,
                     value = command.description,
                     inline = true
