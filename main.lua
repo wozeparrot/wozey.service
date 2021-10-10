@@ -1,14 +1,15 @@
-local https = require('https')
-local fs = require('fs')
+local https = require("https")
+local fs = require("fs")
 
-local discordia = require('discordia')
+local discordia = require("discordia")
 discordia.extensions()
 local client = discordia.Client()
 
 -- load features
-local prefix = "."
+local prefix = ";"
 local features = {
-    require('features/dynamic_voice_channels')
+    require("features/dynamic_voice_channels")(client),
+    require("features/music")(client)
 }
 
 for i, feature in ipairs(features) do
@@ -25,7 +26,7 @@ for i, feature in ipairs(features) do
         local command = feature.commands[args[1]:gsub(prefix, "")]
         if command then
             -- execute if found
-            command.exec(args:concat(" "))
+            command.exec(message)
         end
     end)
 
@@ -36,19 +37,34 @@ for i, feature in ipairs(features) do
 end
 
 -- help command
-client:on('messageCreate', function(message)
+client:on("messageCreate", function(message)
 	-- don't do anything on our own messages
 	if message.author == client.user then return end
     if message.member == nil then return end
 
     if message.content == prefix.."help" then
-        message:reply("hi")
-    end
-end)
+        -- loop over features, one help embed per feature
+        for i, feature in ipairs(features) do
+            -- generate fields for commands
+            local fields = {}
+            for name, command in pairs(feature.commands) do
+                commands:insert({
+                    name = prefix..name,
+                    value = command.description,
+                    inline = true
+                })
+            end
 
--- show when ready
-client:on('ready', function()
-	print('Logged in as '.. client.user.username)
+            message:reply({
+                embed = {
+                    title = feature.name,
+                    description = feature.description,
+                    fields = fields,
+                    color = 0x000000
+                }
+            })
+        end
+    end
 end)
 
 -- Main Function
@@ -56,7 +72,7 @@ local function main()
 	local token_file = io.open(".token", "r")
 	local token = token_file:read()
 	token_file:close()
-	client:run('Bot ' .. token)
+	client:run("Bot "..token)
 end
 
 main()

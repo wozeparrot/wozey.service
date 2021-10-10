@@ -1,9 +1,9 @@
-return {
+return function(client) return {
     name = "Dynamic Voice Channels",
     description = "Manages temporary voice channels",
     commands = {},
     callbacks = {
-        "voiceChannelJoin" = function(user, channel)
+        ["voiceChannelJoin"] = function(user, channel)
 	        local guild = channel.guild
 	        local category = channel.category
 
@@ -25,12 +25,12 @@ return {
 		        end
 	        end
         end,
-        "voiceChannelLeave" = function(user, channel)
+        ["voiceChannelLeave"] = function(user, channel)
 	        if #channel.connectedMembers == 0 then
-		        if channel.name:sub(1, 4) == 'dyn-' then
+		        if channel.name:sub(1, 4) == "dyn-" then
 			        channel:delete()
 		        end
 	        end
         end
     }
-}
+}end
