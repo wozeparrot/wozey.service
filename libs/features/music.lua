@@ -13,7 +13,7 @@ local function update_queue(guild)
         if queued[guild][1] and queued[guild][1].dl == 0 then
             queued[guild][1].dl = 2
             assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "-o", "./wrun/"..guild.."/music_curr.%(ext)s", queued[guild][1].url },
+                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_curr.%(ext)s", queued[guild][1].url },
                 stdio = { nil, 1, nil }
             }, function()
                 queued[guild][1].dl = 1
@@ -28,7 +28,7 @@ local function update_queue(guild)
         if queued[guild][2] and queued[guild][2].dl == 0 then
             queued[guild][2].dl = 2
             assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "-o", "./wrun/"..guild.."/music_next.%(ext)s", queued[guild][2].url },
+                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_next.%(ext)s", queued[guild][2].url },
                 stdio = { nil, 1, nil }
             }, function()
                 queued[guild][2].dl = 1
