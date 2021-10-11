@@ -13,13 +13,19 @@ local function update_queue(guild)
         if queued[guild][1] and queued[guild][1].dl == 0 then
             queued[guild][1].dl = 2
             assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_curr.%(ext)s", queued[guild][1].url },
-                stdio = { nil, 1, nil }
+                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
+                stdio = { nil, 1, 2 }
             }, function()
-                queued[guild][1].dl = 1
-                if status[guild] then
-                    coroutine.resume(status[guild], false)
-                end
+                assert(uv.spawn("ffmpeg-normalize", {
+                    args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-15", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                    stdio = { nil, 1, 2 }
+                }, function()
+                    os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+                    queued[guild][1].dl = 1
+                    if status[guild] then
+                        coroutine.resume(status[guild], false)
+                    end
+                end), "is ffmpeg installed and on $PATH?")
             end), "is youtube-dl installed and on $PATH?")
         end
     end
@@ -28,13 +34,19 @@ local function update_queue(guild)
         if queued[guild][2] and queued[guild][2].dl == 0 then
             queued[guild][2].dl = 2
             assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_next.%(ext)s", queued[guild][2].url },
-                stdio = { nil, 1, nil }
+                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
+                stdio = { nil, 1, 2 }
             }, function()
-                queued[guild][2].dl = 1
-                if status[guild] then
-                    coroutine.resume(status[guild], true)
-                end
+                assert(uv.spawn("ffmpeg-normalize", {
+                    args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-15", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                    stdio = { nil, 1, 2 }
+                }, function()
+                    os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+                    queued[guild][2].dl = 1
+                    if status[guild] then
+                        coroutine.resume(status[guild], false)
+                    end
+                end), "is ffmpeg installed and on $PATH?")
             end), "is youtube-dl installed and on $PATH?")
         end
     end
@@ -214,8 +226,12 @@ return function(client) return {
                                         break
                                     else
                                         -- waiting for song to download
-                                        if coroutine.yield() then
-                                            next_song(message.guild.id)
+                                        if status[message.guild.id] then
+                                            if coroutine.yield() then
+                                                if not next_song(message.guild.id) then break end
+                                            end
+                                        else
+                                            break
                                         end
                                     end
                                 end
@@ -250,6 +266,21 @@ return function(client) return {
                 end
             end
         },
+        ["mun"] = {
+            description = "Skips to next queued song",
+            exec = function(message)
+                if status[message.guild.id] then
+                    message.guild.connection:stopStream()
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Next",
+                            description = "Music is not Playing!"
+                        }
+                    })
+                end
+            end
+        }
     },
     callbacks = {
         ["voiceChannelLeave"] = function(user, channel)
