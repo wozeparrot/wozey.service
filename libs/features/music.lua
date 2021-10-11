@@ -1,9 +1,11 @@
 local uv = require("uv")
 local yield, resume, running = coroutine.yield, coroutine.resume, coroutine.running
 local fs = require("fs")
+local path = require("path")
 
 local queued = {}
 local status = {}
+local nexted = {}
 
 local function update_queue(guild)
     fs.mkdirSync("./wrun/"..guild)
@@ -12,20 +14,23 @@ local function update_queue(guild)
     if not fs.existsSync("./wrun/"..guild.."/music_curr.opus") then
         if queued[guild][1] and queued[guild][1].dl == 0 then
             queued[guild][1].dl = 2
-            assert(uv.spawn("youtube-dl", {
+            queued[guild][1].dl_handle = assert(uv.spawn("youtube-dl", {
                 args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
                 stdio = { nil, 1, 2 }
-            }, function()
-                assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-15", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
-                    stdio = { nil, 1, 2 }
-                }, function()
-                    os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
-                    queued[guild][1].dl = 1
-                    if status[guild] then
-                        coroutine.resume(status[guild], false)
-                    end
-                end), "is ffmpeg installed and on $PATH?")
+            }, function(code, signal)
+                if code == 0 and signal == 0 then
+                    uv.close(queued[guild][1].dl_handle)
+                    queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                        args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-18", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                        stdio = { nil, 1, 2 }
+                    }, function(code, signal)
+                        if code == 0 and signal == 0 then
+                            uv.close(queued[guild][1].dl_handle)
+                            os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+                            queued[guild][1].dl = 1
+                        end
+                    end), "is ffmpeg-normalize installed and on $PATH?")
+                end
             end), "is youtube-dl installed and on $PATH?")
         end
     end
@@ -33,35 +38,64 @@ local function update_queue(guild)
     if not fs.existsSync("./wrun/"..guild.."/music_next.opus") then
         if queued[guild][2] and queued[guild][2].dl == 0 then
             queued[guild][2].dl = 2
-            assert(uv.spawn("youtube-dl", {
+            queued[guild][2].dl_handle = assert(uv.spawn("youtube-dl", {
                 args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
                 stdio = { nil, 1, 2 }
-            }, function()
-                assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-15", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
-                    stdio = { nil, 1, 2 }
-                }, function()
-                    os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
-                    queued[guild][2].dl = 1
-                    if status[guild] then
-                        coroutine.resume(status[guild], false)
-                    end
-                end), "is ffmpeg installed and on $PATH?")
+            }, function(code, signal)
+                if code == 0 and signal == 0 then
+                    uv.close(queued[guild][2].dl_handle)
+                    queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                        args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-18", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                        stdio = { nil, 1, 2 }
+                    }, function(code, signal)
+                        if code == 0 and signal == 0 then
+                            os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+                            queued[guild][2].dl = 1
+                        end
+                    end), "is ffmpeg-normalize installed and on $PATH?")
+                end
             end), "is youtube-dl installed and on $PATH?")
         end
     end
 end
 
-local function next_song(guild)
+local function next_song(guild, force)
     -- if there is no next song just reset to a clean state
     if not queued[guild][2] then
-        os.execute("rm ./wrun/"..guild.."/music_curr.opus")
+        if queued[guild][1].dl == 2 then
+            uv.process_kill(queued[guild][1].dl_handle, "sigterm")
+        end
+
+        os.execute("rm -r ./wrun/"..guild)
         queued[guild] = nil
+        status[guild] = nil
+        nexted[guild] = false
         return false
     end
 
     -- don't switch if we are still downloading the next song
-    if queued[guild][2].dl ~= 1 then
+    if queued[guild][2].dl ~= 1 and not force then
+        return true
+    end
+
+    -- force switch
+    if force then
+        if queued[guild][1].dl == 2 then
+            uv.process_kill(queued[guild][1].dl_handle, "sigterm")
+            queued[guild][1].dl = 0
+        end
+        if queued[guild][2].dl == 2 then
+            uv.process_kill(queued[guild][2].dl_handle, "sigterm")
+            queued[guild][2].dl = 0
+        end
+
+        -- remove curr and clean directory
+        table.remove(queued[guild], 1)
+        os.execute("rm -r ./wrun/"..guild)
+
+        -- fetch new next
+        update_queue(guild)
+
         return true
     end
 
@@ -114,7 +148,8 @@ return function(client) return {
                             title = title,
                             url = args[2],
                             user = message.author.tag,
-                            dl = 0
+                            dl = 0,
+                            dl_handle = nil
                         })
 
                         message:reply({
@@ -211,30 +246,29 @@ return function(client) return {
                         coroutine.wrap(function ()
                             status[message.guild.id] = coroutine.running()
                             while status[message.guild.id] do
-                                if queued[message.guild.id][1].dl == 1 then
+                                if queued[message.guild.id] and queued[message.guild.id][1].dl == 1 then
                                     -- play song
                                     connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.opus")
 
                                     -- switch to next song
                                     if status[message.guild.id] then
-                                        if not next_song(message.guild.id) then break end
+                                        if nexted[message.guild.id] then
+                                            if not next_song(message.guild.id, true) then break end
+                                        else
+                                            if not next_song(message.guild.id, false) then break end
+                                        end
                                     else
                                         break
                                     end
                                 else
-                                    if not queued[message.guild.id][1] then
-                                        break
+                                    -- waiting for song to download
+                                    if status[message.guild.id] then
+                                        connection:playFFmpeg(uv.os_getenv("WOZEY_ROOT").."/assets/music_loading.opus")
                                     else
-                                        -- waiting for song to download
-                                        if status[message.guild.id] then
-                                            if coroutine.yield() then
-                                                if not next_song(message.guild.id) then break end
-                                            end
-                                        else
-                                            break
-                                        end
+                                        break
                                     end
                                 end
+                                nexted[message.guild.id] = false
                             end
                             connection:close()
                             status[message.guild.id] = nil
@@ -268,8 +302,10 @@ return function(client) return {
         },
         ["mun"] = {
             description = "Skips to next queued song",
+            owner_only = true,
             exec = function(message)
-                if status[message.guild.id] then
+                if status[message.guild.id] and queued[message.guild.id] then
+                    nexted[message.guild.id] = true
                     message.guild.connection:stopStream()
                 else
                     message:reply({

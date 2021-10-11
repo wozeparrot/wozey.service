@@ -26,8 +26,15 @@ for i, feature in ipairs(features) do
         -- find matching command
         local command = feature.commands[args[1]:gsub(prefix, "")]
         if command then
-            -- execute if found
-            command.exec(message)
+            if command.owner_only then
+                if message.author == client.owner then
+                    -- execute if found
+                    command.exec(message)
+                end
+            else
+                -- execute if found
+                command.exec(message)
+            end
         end
     end)
 
@@ -49,10 +56,12 @@ client:on("messageCreate", function(message)
             -- generate fields for commands
             local fields = {}
             for name, command in pairs(feature.commands) do
-                table.insert(fields, {
-                    name = prefix..name,
-                    value = command.description,
-                })
+                if not command.owner_only then
+                    table.insert(fields, {
+                        name = prefix..name,
+                        value = command.description,
+                    })
+                end
             end
 
             message:reply({
