@@ -328,6 +328,13 @@ return function(client) return {
 
                 if args[2] then
                     waitmu[message.guild.id] = args[2]
+
+                    message:reply({
+                        embed = {
+                            title = "Music - Waiting",
+                            description = "Changed Waiting Music To: "..args[2],
+                        }
+                    })
                 else
                     message:reply({
                         embed = {
