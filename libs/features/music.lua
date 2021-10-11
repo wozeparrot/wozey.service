@@ -6,6 +6,7 @@ local path = require("path")
 local queued = {}
 local status = {}
 local nexted = {}
+local waitmu = {}
 
 local function update_queue(guild)
     fs.mkdirSync("./wrun/"..guild)
@@ -237,6 +238,11 @@ return function(client) return {
         ["mup"] = {
             description = "Plays queued music",
             exec = function(message)
+                -- set default loading music if not set yet
+                if not waitmu[message.guild.id] then
+                    waitmu[message.guild.id] = 1
+                end
+
                 if message.member.voiceChannel then
                     if not status[message.guild.id] then
                         local connection = message.member.voiceChannel:join()
@@ -260,7 +266,7 @@ return function(client) return {
                                 else
                                     -- waiting for song to download
                                     if status[message.guild.id] then
-                                        connection:playFFmpeg(uv.os_getenv("WOZEY_ROOT").."/assets/music_loading.opus")
+                                        connection:playFFmpeg(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".opus")
                                     else
                                         break
                                     end
@@ -309,6 +315,24 @@ return function(client) return {
                         embed = {
                             title = "Music - Next",
                             description = "No Music Queued / No Music Playing!"
+                        }
+                    })
+                end
+            end
+        },
+        ["muw"] = {
+            description = "Changes waiting music",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+
+                if args[2] then
+                    waitmu[message.guild.id] = args[2]
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Waiting",
+                            description = "Invalid Waiting Music!"
                         }
                     })
                 end

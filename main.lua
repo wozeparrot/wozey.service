@@ -59,8 +59,15 @@ client:on("messageCreate", function(message)
                 if not command.owner_only then
                     table.insert(fields, {
                         name = prefix..name,
-                        value = command.description,
+                        value = command.description
                     })
+                else
+                    if message.author == client.owner then
+                        table.insert(fields, {
+                            name = prefix..name.."*",
+                            value = command.description
+                        })
+                    end
                 end
             end
 
