@@ -216,23 +216,34 @@ return function(client) return {
         ["muc"] = {
             description = "Shows song in position #1 of the queue",
             exec = function(message)
-                if not queued[message.guild.id] then
+                if not queued[message.guild.id] or queued[message.guild.id][1].dl ~= 1 then
                     message:reply({
                         embed = {
                             title = "Music - Current",
-                            description = "No Music Queued!"
+                            description = "Waiting Music While Next Song Loads",
+                            fields = {
+                                {
+                                    name = "Requested By",
+                                    value = client.user.tag
+                                }
+                            }
                         }
                     })
-                    return
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Current",
+                            description = queued[message.guild.id][1].title,
+                            url = queued[message.guild.id][1].url,
+                            fields = {
+                                {
+                                    name = "Requested By",
+                                    value = queued[message.guild.id][1].user
+                                }
+                            }
+                        }
+                    })
                 end
-
-                message:reply({
-                    embed = {
-                        title = queued[message.guild.id][1].title,
-                        description = "Requested By: "..queued[message.guild.id][1].user,
-                        url = queued[message.guild.id][1].url
-                    }
-                })
             end
         },
         ["mup"] = {
@@ -250,6 +261,21 @@ return function(client) return {
                             status[message.guild.id] = coroutine.running()
                             while status[message.guild.id] do
                                 if queued[message.guild.id] and queued[message.guild.id][1].dl == 1 then
+                                    -- send now playing message
+                                    message:reply({
+                                        embed = {
+                                            title = "Music - Now Playing",
+                                            description = queued[message.guild.id][1].title,
+                                            url = queued[message.guild.id][1].url,
+                                            fields = {
+                                                {
+                                                    name = "Requested By",
+                                                    value = queued[message.guild.id][1].user
+                                                }
+                                            }
+                                        }
+                                    })
+
                                     -- play song
                                     connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.opus")
 
@@ -276,6 +302,13 @@ return function(client) return {
                             connection:close()
                             status[message.guild.id] = nil
                         end)()
+                    else
+                        message:reply({
+                            embed = {
+                                title = "Music - Play",
+                                description = "Already Playing Music!"
+                            }
+                        })
                     end
                 else
                     message:reply({
