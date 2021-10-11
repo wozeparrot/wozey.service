@@ -68,14 +68,13 @@ local function next_song(guild, force)
 
         os.execute("rm -r ./wrun/"..guild)
         queued[guild] = nil
-        status[guild] = nil
         nexted[guild] = false
-        return false
+        return
     end
 
     -- don't switch if we are still downloading the next song
     if queued[guild][2].dl ~= 1 and not force then
-        return true
+        return
     end
 
     -- force switch
@@ -96,7 +95,7 @@ local function next_song(guild, force)
         -- fetch new next
         update_queue(guild)
 
-        return true
+        return
     end
 
     -- move next to curr
@@ -105,8 +104,6 @@ local function next_song(guild, force)
 
     -- fetch new next
     update_queue(guild)
-
-    return true
 end
 
 return function(client) return {
@@ -253,9 +250,9 @@ return function(client) return {
                                     -- switch to next song
                                     if status[message.guild.id] then
                                         if nexted[message.guild.id] then
-                                            if not next_song(message.guild.id, true) then break end
+                                            next_song(message.guild.id, true)
                                         else
-                                            if not next_song(message.guild.id, false) then break end
+                                            next_song(message.guild.id, false)
                                         end
                                     else
                                         break
@@ -294,7 +291,7 @@ return function(client) return {
                     message:reply({
                         embed = {
                             title = "Music - Stop",
-                            description = "Music is not Playing!"
+                            description = "No Music Queued / No Music Playing!"
                         }
                     })
                 end
@@ -311,7 +308,7 @@ return function(client) return {
                     message:reply({
                         embed = {
                             title = "Music - Next",
-                            description = "Music is not Playing!"
+                            description = "No Music Queued / No Music Playing!"
                         }
                     })
                 end
