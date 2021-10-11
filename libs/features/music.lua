@@ -68,7 +68,7 @@ return function(client) return {
     description = "Plays music in voice channels",
     commands = {
         ["muq"] = {
-            description = "queues a url for playback",
+            description = "queues a song for playback",
             exec = function(message)
                 local args = message.content:split(" ")
 
@@ -76,7 +76,7 @@ return function(client) return {
                     -- spawn youtube-dl process
                     local stdout = uv.new_pipe(false)
                     local handle, pid = assert(uv.spawn("youtube-dl", {
-                        args = { "-e", args[2] },
+                        args = { "-e", "--no-playlist", args[2] },
                         stdio = { 0, stdout, 2 }
                     }, function() end), "is youtube-dl installed and on $PATH?")
 
@@ -240,6 +240,13 @@ return function(client) return {
                 if status[message.guild.id] then
                     status[message.guild.id] = nil
                     message.guild.connection:stopStream()
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Stop",
+                            description = "Music is not Playing!"
+                        }
+                    })
                 end
             end
         },
