@@ -3,39 +3,64 @@ local yield, resume, running = coroutine.yield, coroutine.resume, coroutine.runn
 local fs = require("fs")
 
 local queued = {}
-
-local function file_exists(name)
-   local f = io.open(name, "r")
-   if f then
-       f:close()
-       return true
-   else
-       return false
-   end
-end
+local status = {}
 
 local function update_queue(guild)
-    fs.mkdir("./wrun/"..guild)
+    fs.mkdirSync("./wrun/"..guild)
 
-    if not file_exists("./wrun/"..guild.."/curr.wav") then
-        if queued[guild][1] then
+    -- fetch current song
+    if not fs.existsSync("./wrun/"..guild.."/music_curr.opus") then
+        if queued[guild][1] and queued[guild][1].dl == 0 then
+            queued[guild][1].dl = 2
             assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "wav", "-o", "./wrun/"..guild.."/music_curr.%(ext)s", queued[guild][1].url },
-                stdio = { 0, 1, 2 }
+                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "-o", "./wrun/"..guild.."/music_curr.%(ext)s", queued[guild][1].url },
+                stdio = { nil, 1, nil }
             }, function()
-                queued[guild][1].dl = true
-            end), "spawning youtube-dl downloader failed")
+                queued[guild][1].dl = 1
+                if status[guild] then
+                    coroutine.resume(status[guild], false)
+                end
+            end), "is youtube-dl installed and on $PATH?")
         end
     end
-    if not file_exists("./wrun/"..guild.."/next.wav") then
-        if queued[guild][2] then
+    -- prefetch next song
+    if not fs.existsSync("./wrun/"..guild.."/music_next.opus") then
+        if queued[guild][2] and queued[guild][2].dl == 0 then
+            queued[guild][2].dl = 2
             assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "wav", "-o", "./wrun/"..guild.."/music_next.%(ext)s", queued[guild][2].url }
+                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "-o", "./wrun/"..guild.."/music_next.%(ext)s", queued[guild][2].url },
+                stdio = { nil, 1, nil }
             }, function()
-                queued[guild][2].dl = true
-            end), "spawning youtube-dl downloader failed")
+                queued[guild][2].dl = 1
+                if status[guild] then
+                    coroutine.resume(status[guild], true)
+                end
+            end), "is youtube-dl installed and on $PATH?")
         end
     end
+end
+
+local function next_song(guild)
+    -- if there is no next song just reset to a clean state
+    if not queued[guild][2] then
+        os.execute("rm ./wrun/"..guild.."/music_curr.opus")
+        queued[guild] = nil
+        return false
+    end
+
+    -- don't switch if we are still downloading the next song
+    if queued[guild][2].dl ~= 1 then
+        return true
+    end
+
+    -- move next to curr
+    fs.renameSync("./wrun/"..guild.."/music_next.opus", "./wrun/"..guild.."/music_curr.opus")
+    table.remove(queued[guild], 1)
+
+    -- fetch new next
+    update_queue(guild)
+
+    return true
 end
 
 return function(client) return {
@@ -68,6 +93,7 @@ return function(client) return {
                     end)
                     yield()
 
+                    -- queue song
                     if title and title:trim() ~= "" then
                         if not queued[message.guild.id] then
                             queued[message.guild.id] = {}
@@ -76,7 +102,7 @@ return function(client) return {
                             title = title,
                             url = args[2],
                             user = message.author.tag,
-                            dl = false
+                            dl = 0
                         })
 
                         message:reply({
@@ -110,6 +136,12 @@ return function(client) return {
             description = "Lists currently queued music",
             exec = function(message)
                 if not queued[message.guild.id] then
+                    message:reply({
+                        embed = {
+                            title = "Music - List",
+                            description = "No Music Queued!"
+                        }
+                    })
                     return
                 end
 
@@ -122,15 +154,9 @@ return function(client) return {
                     else
                         name = ")  "..song.title
                     end
-                    local value = ""
-                    if song.dl then
-                        value = "<> Requested By: "..song.user
-                    else
-                        value = ">< Requested By: "..song.user
-                    end
                     table.insert(fields, {
                         name = name,
-                        value = value
+                        value = "|"..song.dl.."| Requested By: "..song.user
                     })
                 end
 
@@ -142,14 +168,79 @@ return function(client) return {
                 })
             end
         },
+        ["muc"] = {
+            description = "Shows song in position #1 of the queue",
+            exec = function(message)
+                if not queued[message.guild.id] then
+                    message:reply({
+                        embed = {
+                            title = "Music - Current",
+                            description = "No Music Queued!"
+                        }
+                    })
+                    return
+                end
+
+                message:reply({
+                    embed = {
+                        title = queued[message.guild.id][1].title,
+                        description = "Requested By: "..queued[message.guild.id][1].user,
+                        url = queued[message.guild.id][1].url
+                    }
+                })
+            end
+        },
         ["mup"] = {
             description = "Plays queued music",
             exec = function(message)
+                if message.member.voiceChannel then
+                    if not status[message.guild.id] then
+                        local connection = message.member.voiceChannel:join()
+                        coroutine.wrap(function ()
+                            status[message.guild.id] = coroutine.running()
+                            while status[message.guild.id] do
+                                if queued[message.guild.id][1].dl == 1 then
+                                    -- play song
+                                    connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.opus")
+
+                                    -- switch to next song
+                                    if status[message.guild.id] then
+                                        if not next_song(message.guild.id) then break end
+                                    else
+                                        break
+                                    end
+                                else
+                                    if not queued[message.guild.id][1] then
+                                        break
+                                    else
+                                        -- waiting for song to download
+                                        if coroutine.yield() then
+                                            next_song(message.guild.id)
+                                        end
+                                    end
+                                end
+                            end
+                            connection:close()
+                            status[message.guild.id] = nil
+                        end)()
+                    end
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Play",
+                            description = "Join a VC First!"
+                        }
+                    })
+                end
             end
         },
         ["mus"] = {
             description = "Stops playing queued music",
             exec = function(message)
+                if status[message.guild.id] then
+                    status[message.guild.id] = nil
+                    message.guild.connection:stopStream()
+                end
             end
         },
     },

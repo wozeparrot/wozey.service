@@ -50,10 +50,10 @@
 
           wozey =
             let
-              wozeySrc = builtins.toString ./.;
+              wozeySrc = ./.;
             in
-            prev.writeShellScriptBin "wozey" ''
-              ${luvit}/bin/luvit ${wozeySrc}/main.lua
+            final.writeShellScriptBin "wozey" ''
+              LD_LIBRARY_PATH="${prev.libopus}/lib:${prev.libsodium}/lib" ${luvit}/bin/luvit ${wozeySrc}/main.lua "$@"
             '';
         };
       };

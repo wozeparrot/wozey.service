@@ -10,7 +10,7 @@ return function(client) return {
 	        if category ~= nil then
 		        if channel.name == "dcontrol" then
 			        -- create new dynamic channel
-			        local new_channel = guild:createVoiceChannel("dyn-" .. string.random(4, 32, 126))
+			        local new_channel = guild:createVoiceChannel("dyn-" .. string.random(4, 65, 90))
 			        new_channel:setCategory(category.id)
 			        new_channel:moveDown()
 				

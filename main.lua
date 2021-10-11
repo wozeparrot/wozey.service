@@ -1,5 +1,6 @@
 local https = require("https")
 local fs = require("fs")
+local os = require("os")
 
 local discordia = require("discordia")
 discordia.extensions()
@@ -51,7 +52,6 @@ client:on("messageCreate", function(message)
                 table.insert(fields, {
                     name = prefix..name,
                     value = command.description,
-                    inline = true
                 })
             end
 
@@ -69,8 +69,8 @@ end)
 -- Main Function
 local function main()
     -- cleanup old runtime stuff
-    fs.rmdir("./wrun")
-    fs.mkdir("./wrun")
+    os.execute("rm -r ./wrun")
+    fs.mkdirSync("./wrun")
 
 	local token_file = io.open(".token", "r")
 	local token = token_file:read()
