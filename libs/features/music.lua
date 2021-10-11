@@ -12,7 +12,7 @@ local function update_queue(guild)
     fs.mkdirSync("./wrun/"..guild)
 
     -- fetch current song
-    if not fs.existsSync("./wrun/"..guild.."/music_curr.opus") then
+    if not fs.existsSync("./wrun/"..guild.."/music_curr.wav") then
         if queued[guild][1] and queued[guild][1].dl == 0 then
             queued[guild][1].dl = 2
             queued[guild][1].dl_handle = assert(uv.spawn("youtube-dl", {
@@ -22,7 +22,7 @@ local function update_queue(guild)
                 if code == 0 and signal == 0 then
                     uv.close(queued[guild][1].dl_handle)
                     queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-18", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                        args = { "-ar", "48000", "-t", "-18", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.wav" },
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
@@ -36,7 +36,7 @@ local function update_queue(guild)
         end
     end
     -- prefetch next song
-    if not fs.existsSync("./wrun/"..guild.."/music_next.opus") then
+    if not fs.existsSync("./wrun/"..guild.."/music_next.wav") then
         if queued[guild][2] and queued[guild][2].dl == 0 then
             queued[guild][2].dl = 2
             queued[guild][2].dl_handle = assert(uv.spawn("youtube-dl", {
@@ -46,7 +46,7 @@ local function update_queue(guild)
                 if code == 0 and signal == 0 then
                     uv.close(queued[guild][2].dl_handle)
                     queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-c:a", "libopus", "-b:a", "160k", "-t", "-18", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                        args = { "-ar", "48000", "-t", "-18", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.wav" },
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
@@ -277,7 +277,9 @@ return function(client) return {
                                     })
 
                                     -- play song
-                                    connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.opus")
+                                    local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav")
+                                    f:seek("set", 44)
+                                    connection:playPCM(f:read("*a"))
 
                                     -- switch to next song
                                     if status[message.guild.id] then
@@ -292,7 +294,9 @@ return function(client) return {
                                 else
                                     -- waiting for song to download
                                     if status[message.guild.id] then
-                                        connection:playFFmpeg(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".opus")
+                                        local f = io.open(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".wav", "rb")
+                                        f:seek("set", 44)
+                                        connection:playPCM(f:read("*a"))
                                     else
                                         break
                                     end
