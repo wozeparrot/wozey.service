@@ -22,7 +22,7 @@ local function update_queue(guild)
                 if code == 0 and signal == 0 then
                     uv.close(queued[guild][1].dl_handle)
                     queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-c:a", "libopus", "-b:a", "128k", "-t", "-18", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                        args = { "-c:a", "libopus", "-b:a", "128k", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
@@ -46,7 +46,7 @@ local function update_queue(guild)
                 if code == 0 and signal == 0 then
                     uv.close(queued[guild][2].dl_handle)
                     queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-c:a", "libopus", "-b:a", "128k", "-t", "-18", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                        args = { "-c:a", "libopus", "-b:a", "128k", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
@@ -122,7 +122,7 @@ return function(client) return {
                 local args = message.content:split(" ")
 
                 if args[2] then
-                    local url = args[2]:gsub("<", ""):gsub(">", "")
+                    local url = message.content:gsub(";queue ", "", 1):gsub("<", ""):gsub(">", "")
 
                     -- spawn youtube-dl process
                     local stdout = uv.new_pipe(false)
@@ -162,7 +162,6 @@ return function(client) return {
                             embed = {
                                 title = "Music - Queued",
                                 description = title,
-                                url = url,
                                 fields = {
                                     {
                                         name = "Requested By",
@@ -254,7 +253,6 @@ return function(client) return {
                         embed = {
                             title = "Music - Current",
                             description = queued[message.guild.id][1].title,
-                            url = queued[message.guild.id][1].url,
                             fields = {
                                 {
                                     name = "Requested By",
@@ -287,7 +285,6 @@ return function(client) return {
                                         embed = {
                                             title = "Music - Now Playing",
                                             description = queued[message.guild.id][1].title,
-                                            url = queued[message.guild.id][1].url,
                                             fields = {
                                                 {
                                                     name = "Requested By",
@@ -362,6 +359,38 @@ return function(client) return {
                         embed = {
                             title = "Music - Stop",
                             description = "No Music Queued / No Music Playing!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["resume"] = {
+            description = "Resume previously playing music",
+            exec = function(message)
+                if status[message.guild.id] then
+                    message.guild.connection:resumeStream()
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Resume",
+                            description = "No Music Playing!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["pause"] = {
+            description = "Pauses currently playing music",
+            exec = function(message)
+                if status[message.guild.id] then
+                    message.guild.connection:pauseStream()
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Pause",
+                            description = "No Music Playing!"
                         },
                         reference = { message = message, mention = true }
                     })
