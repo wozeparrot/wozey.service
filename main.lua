@@ -24,6 +24,7 @@ for i, feature in ipairs(features) do
         local args = message.content:split(" ")
 
         -- find matching command
+        if not args[1]:startswith(prefix) then return end
         local command = feature.commands[args[1]:gsub(prefix, "")]
         if command then
             if command.owner_only then
@@ -76,7 +77,8 @@ client:on("messageCreate", function(message)
                     title = feature.name,
                     description = feature.description,
                     fields = fields
-                }
+                },
+                reference = {message = message, mention = true},
             })
         end
     end
