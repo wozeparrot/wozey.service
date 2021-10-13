@@ -10,9 +10,9 @@ local client = discordia.Client()
 local prefix = ";"
 local features = {
     require("features/pinged")(client),
+    require("features/anime")(client),
     require("features/dynamic_voice_channels")(client),
-    require("features/music")(client),
-    require("features/anime")(client)
+    require("features/music")(client)
 }
 
 for i, feature in ipairs(features) do

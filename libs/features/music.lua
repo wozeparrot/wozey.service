@@ -10,6 +10,7 @@ local status = {}
 local nexted = {}
 local waitmu = {}
 local loopmu = {}
+local volume = {}
 
 local function update_queue(guild)
     fs.mkdirSync("./wrun/"..guild)
@@ -24,7 +25,7 @@ local function update_queue(guild)
             if code == 0 and signal == 0 then
                 uv.close(queued[guild][1].dl_handle)
                 queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
                     stdio = { nil, 1, 2 }
                 }, function(code, signal)
                     if code == 0 and signal == 0 then
@@ -54,7 +55,7 @@ local function update_queue(guild)
             if code == 0 and signal == 0 then
                 uv.close(queued[guild][2].dl_handle)
                 queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
                     stdio = { nil, 1, 2 }
                 }, function(code, signal)
                     if code == 0 and signal == 0 then
@@ -136,42 +137,59 @@ return function(client) return {
             exec = function(message)
                 local args = message.content:split(" ")
 
+                -- set default volume if not set yet
+                if volume[message.guild.id] == nil then
+                    volume[message.guild.id] = "-23"
+                end
+
                 if args[2] then
                     local url = message.content:gsub(";queue ", "", 1):gsub("<", ""):gsub(">", "")
 
                     -- spawn youtube-dl process
                     local stop = false
+                    local thread = running()
                     local stdout = uv.new_pipe(false)
                     local handle, pid = assert(uv.spawn("yt-dlp", {
                         args = { "-j", "--no-playlist", url },
                         stdio = { 0, stdout, 2 }
-                    }, function(code)
-                        if code ~= 0 then
+                    }, function(code, signal)
+                        if code ~= 0 or signal ~= 0 then
                             stop = true
                         end
+                        resume(thread)
                     end), "is yt-dlp installed and on $PATH?")
 
                     -- read data from stdout of youtube-dl
                     local ret = ""
-                    local thread = running()
                     stdout:read_start(function(err, data)
                         assert(not err, err)
                         if data then
                             ret = ret..data
-                        else
-                            return assert(resume(thread))
                         end
                     end)
                     yield()
 
                     -- close handle
                     uv.close(handle)
+                    uv.shutdown(stdout)
+
+                    -- invalid url encountered
+                    if stop then
+                        message:reply({
+                            embed = {
+                                title = "Music - Queue",
+                                description = "Invalid URL!"
+                            },
+                            reference = { message = message, mention = true }
+                        })
+                        return
+                    end
 
                     -- parse returned json
                     local json_ret = json.parse(ret)
 
                     -- check before queue
-                    if not stop and json_ret.fulltitle and json_ret.duration and json_ret.duration < 600 then
+                    if json_ret.fulltitle and json_ret.duration and json_ret.duration < 600 then
                         local title = json_ret.fulltitle
                         local duration = time.fromSeconds(json_ret.duration):toString()
 
@@ -610,7 +628,34 @@ return function(client) return {
                     })
                 end
             end
-        }
+        },
+        ["muv"] = {
+            description = "Changes music volume for not downloaded tracks",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+
+                if args[2] then
+                    volume[message.guild.id] = args[2]
+
+                    message:reply({
+                        embed = {
+                            title = "Music - Volume",
+                            description = "Changed Music Volume To: "..args[2],
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Volume",
+                            description = "Invalid Music Volume!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
     },
     callbacks = {
         ["voiceChannelLeave"] = function(user, channel)
