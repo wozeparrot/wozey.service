@@ -79,7 +79,7 @@ client:on("messageCreate", function(message)
                     description = feature.description,
                     fields = fields
                 },
-                reference = {message = message, mention = true},
+                reference = { message = message, mention = true },
             })
         end
     end

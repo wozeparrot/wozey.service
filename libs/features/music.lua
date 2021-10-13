@@ -2,61 +2,76 @@ local uv = require("uv")
 local yield, resume, running = coroutine.yield, coroutine.resume, coroutine.running
 local fs = require("fs")
 local path = require("path")
+local json = require("json")
+local time = require("discordia").Time
 
 local queued = {}
 local status = {}
 local nexted = {}
 local waitmu = {}
+local loopmu = {}
 
 local function update_queue(guild)
     fs.mkdirSync("./wrun/"..guild)
 
     -- fetch current song
-    if not fs.existsSync("./wrun/"..guild.."/music_curr.opus") then
-        if queued[guild][1] and queued[guild][1].dl == 0 then
-            queued[guild][1].dl = 2
-            queued[guild][1].dl_handle = assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
-                stdio = { nil, 1, 2 }
-            }, function(code, signal)
-                if code == 0 and signal == 0 then
-                    uv.close(queued[guild][1].dl_handle)
-                    queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-c:a", "libopus", "-b:a", "128k", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
-                        stdio = { nil, 1, 2 }
-                    }, function(code, signal)
-                        if code == 0 and signal == 0 then
-                            uv.close(queued[guild][1].dl_handle)
-                            os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+    if queued[guild][1] and queued[guild][1].dl == 0 then
+        queued[guild][1].dl = 2
+        queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
+            args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
+            stdio = { nil, 1, 2 }
+        }, function(code, signal)
+            if code == 0 and signal == 0 then
+                uv.close(queued[guild][1].dl_handle)
+                queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                    stdio = { nil, 1, 2 }
+                }, function(code, signal)
+                    if code == 0 and signal == 0 then
+                        uv.close(queued[guild][1].dl_handle)
+                        os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+                        queued[guild][1].dl = 1
+                    end
+                    if code == 1 then
+                        if not queued[guild][1].dl_retry then
+                            queued[guild][1].dl = 0
+                            queued[guild][1].dl_retry = true
+                        else
                             queued[guild][1].dl = 1
                         end
-                    end), "is ffmpeg-normalize installed and on $PATH?")
-                end
-            end), "is youtube-dl installed and on $PATH?")
-        end
+                    end
+                end), "is ffmpeg-normalize installed and on $PATH?")
+            end
+        end), "is yt-dlp installed and on $PATH?")
     end
     -- prefetch next song
-    if not fs.existsSync("./wrun/"..guild.."/music_next.opus") then
-        if queued[guild][2] and queued[guild][2].dl == 0 then
-            queued[guild][2].dl = 2
-            queued[guild][2].dl_handle = assert(uv.spawn("youtube-dl", {
-                args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
-                stdio = { nil, 1, 2 }
-            }, function(code, signal)
-                if code == 0 and signal == 0 then
-                    uv.close(queued[guild][2].dl_handle)
-                    queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-c:a", "libopus", "-b:a", "128k", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
-                        stdio = { nil, 1, 2 }
-                    }, function(code, signal)
-                        if code == 0 and signal == 0 then
-                            os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+    if queued[guild][2] and queued[guild][2].dl == 0 then
+        queued[guild][2].dl = 2
+        queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
+            args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
+            stdio = { nil, 1, 2 }
+        }, function(code, signal)
+            if code == 0 and signal == 0 then
+                uv.close(queued[guild][2].dl_handle)
+                queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                    stdio = { nil, 1, 2 }
+                }, function(code, signal)
+                    if code == 0 and signal == 0 then
+                        os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+                        queued[guild][2].dl = 1
+                    end
+                    if code == 1 then
+                        if not queued[guild][2].dl_retry then
+                            queued[guild][2].dl = 0
+                            queued[guild][2].dl_retry = true
+                        else
                             queued[guild][2].dl = 1
                         end
-                    end), "is ffmpeg-normalize installed and on $PATH?")
-                end
-            end), "is youtube-dl installed and on $PATH?")
-        end
+                    end
+                end), "is ffmpeg-normalize installed and on $PATH?")
+            end
+        end), "is yt-dlp installed and on $PATH?")
     end
 end
 
@@ -117,7 +132,7 @@ return function(client) return {
     description = "Plays music in voice channels",
     commands = {
         ["queue"] = {
-            description = "queues a song for playback",
+            description = "Queues a song for playback",
             exec = function(message)
                 local args = message.content:split(" ")
 
@@ -126,31 +141,42 @@ return function(client) return {
 
                     -- spawn youtube-dl process
                     local stdout = uv.new_pipe(false)
-                    local handle, pid = assert(uv.spawn("youtube-dl", {
-                        args = { "-e", "--no-playlist", url },
+                    local handle, pid = assert(uv.spawn("yt-dlp", {
+                        args = { "-j", "--no-playlist", url },
                         stdio = { 0, stdout, 2 }
-                    }, function() end), "is youtube-dl installed and on $PATH?")
+                    }, function(code)
+                    end), "is yt-dlp installed and on $PATH?")
 
-                    -- read title from stdout of youtube-dl
-                    local title = ""
+                    -- read data from stdout of youtube-dl
+                    local ret = ""
                     local thread = running()
                     stdout:read_start(function(err, data)
                         assert(not err, err)
                         if data then
-                            title = title..data
+                            ret = ret..data
                         else
                             return assert(resume(thread))
                         end
                     end)
                     yield()
 
+                    -- close handle
+                    uv.close(handle)
+
+                    -- parse returned json
+                    local json_ret = json.parse(ret)
+
+                    local title = json_ret.fulltitle
+                    local duration = time.fromSeconds(json_ret.duration):toString()
+
                     -- queue song
-                    if title and title:trim() ~= "" then
+                    if title and title:trim() ~= "" and json_ret.duration and json_ret.duration < 600 then
                         if not queued[message.guild.id] then
                             queued[message.guild.id] = {}
                         end
                         table.insert(queued[message.guild.id], {
                             title = title,
+                            duration = duration,
                             url = url,
                             user = message.author.tag,
                             message = message,
@@ -165,7 +191,13 @@ return function(client) return {
                                 fields = {
                                     {
                                         name = "Requested By",
-                                        value = message.author.tag
+                                        value = message.author.tag,
+                                        inline = true
+                                    },
+                                    {
+                                        name = "Duration",
+                                        value = duration,
+                                        inline = true
                                     }
                                 }
                             },
@@ -176,8 +208,8 @@ return function(client) return {
                     else
                         message:reply({
                             embed = {
-                                title = "Music",
-                                description = "Invalid URL!"
+                                title = "Music - Queue",
+                                description = "Invalid URL / Duration Too Long!"
                             },
                             reference = { message = message, mention = true }
                         })
@@ -185,7 +217,7 @@ return function(client) return {
                 else
                     message:reply({
                         embed = {
-                            title = "Music",
+                            title = "Music - Queue",
                             description = "Invalid URL!"
                         },
                         reference = { message = message, mention = true }
@@ -212,13 +244,23 @@ return function(client) return {
                 for i, song in ipairs(queued[message.guild.id]) do
                     local name = ""
                     if i == 1 then
-                        name = "*) "..song.title
+                        name = "*"..i..") "..song.title
                     else
-                        name = ")  "..song.title
+                        name = i..")  "..song.title
+                    end
+                    local value = "Requested By: "..song.user
+                    if song.dl == 0 then
+                        value = value.." | Status: (Waiting)"
+                    end
+                    if song.dl == 1 then
+                        value = value.." | Status: (Ready)"
+                    end
+                    if song.dl == 2 then
+                        value = value.." | Status: (Downloading)"
                     end
                     table.insert(fields, {
                         name = name,
-                        value = "|"..song.dl.."| Requested By: "..song.user
+                        value = value
                     })
                 end
 
@@ -256,7 +298,13 @@ return function(client) return {
                             fields = {
                                 {
                                     name = "Requested By",
-                                    value = queued[message.guild.id][1].user
+                                    value = queued[message.guild.id][1].user,
+                                    inline = true
+                                },
+                                {
+                                    name = "Duration",
+                                    value = queued[message.guild.id][1].duration,
+                                    inline = true
                                 }
                             }
                         },
@@ -269,12 +317,18 @@ return function(client) return {
             description = "Plays queued music",
             exec = function(message)
                 -- set default loading music if not set yet
-                if not waitmu[message.guild.id] then
+                if waitmu[message.guild.id] == nil then
                     waitmu[message.guild.id] = 1
+                end
+
+                -- set default loop state if not set yet
+                if loopmu[message.guild.id] == nil then
+                    loopmu[message.guild.id] = false
                 end
 
                 if message.member.voiceChannel then
                     if not status[message.guild.id] then
+                        message:addReaction("✅")
                         local connection = message.member.voiceChannel:join()
                         coroutine.wrap(function ()
                             status[message.guild.id] = coroutine.running()
@@ -288,7 +342,13 @@ return function(client) return {
                                             fields = {
                                                 {
                                                     name = "Requested By",
-                                                    value = queued[message.guild.id][1].user
+                                                    value = queued[message.guild.id][1].user,
+                                                    inline = true
+                                                },
+                                                {
+                                                    name = "Duration",
+                                                    value = queued[message.guild.id][1].duration,
+                                                    inline = true
                                                 }
                                             }
                                         },
@@ -300,10 +360,12 @@ return function(client) return {
 
                                     -- switch to next song
                                     if status[message.guild.id] then
-                                        if nexted[message.guild.id] then
-                                            next_song(message.guild.id, true)
-                                        else
-                                            next_song(message.guild.id, false)
+                                        if not loopmu[message.guild.id] then
+                                            if nexted[message.guild.id] then
+                                                next_song(message.guild.id, true)
+                                            else
+                                                next_song(message.guild.id, false)
+                                            end
                                         end
                                     else
                                         break
@@ -354,6 +416,7 @@ return function(client) return {
                 if status[message.guild.id] then
                     status[message.guild.id] = nil
                     message.guild.connection:stopStream()
+                    message:addReaction("✅")
                 else
                     message:reply({
                         embed = {
@@ -370,6 +433,7 @@ return function(client) return {
             exec = function(message)
                 if status[message.guild.id] then
                     message.guild.connection:resumeStream()
+                    message:addReaction("✅")
                 else
                     message:reply({
                         embed = {
@@ -386,6 +450,7 @@ return function(client) return {
             exec = function(message)
                 if status[message.guild.id] then
                     message.guild.connection:pauseStream()
+                    message:addReaction("✅")
                 else
                     message:reply({
                         embed = {
@@ -400,13 +465,79 @@ return function(client) return {
         ["next"] = {
             description = "Skips to next queued song",
             exec = function(message)
-                if queued[message.guild.id] then
-                    nexted[message.guild.id] = true
-                    message.guild.connection:stopStream()
+                if status[message.guild.id] and queued[message.guild.id] then
+                    -- only allow person who queued to skip their song
+                    if queued[message.guild.id][1].user == message.author.tag or message.author == client.owner then
+                        nexted[message.guild.id] = true
+                        message.guild.connection:stopStream()
+                        message:addReaction("✅")
+                    else
+                        message:reply({
+                            embed = {
+                                title = "Music - Next",
+                                description = "You Didn't Queue This Song!"
+                            },
+                            reference = { message = message, mention = true }
+                        })
+                    end
                 else
                     message:reply({
                         embed = {
                             title = "Music - Next",
+                            description = "No Music Queued!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["delete"] = {
+            description = "Deletes a song from the queue",
+            exec = function(message)
+                if queued[message.guild.id] then
+                    local args = message.content:split(" ")
+                    
+                    if args[2] and tonumber(args[2]) and args[2] ~= "1" and queued[message.guild.id][tonumber(args[2])] ~= nil then
+                        local i = tonumber(args[2])
+
+                        -- only allow person who queued to delete their song
+                        if queued[message.guild.id][i].user == message.author.tag or message.author == client.owner then
+                            if queued[message.guild.id][i].dl == 2 then
+                                uv.process_kill(queued[message.guild.id][i].dl_handle, "sigkill")
+                                queued[message.guild.id][i].dl = 0
+                            end
+                            if i == 2 then
+                                os.execute("rm ./wrun/"..guild.."/music_next.opus")
+                            end
+
+                            table.remove(queued[message.guild.id], i)
+
+                            -- fetch new next
+                            update_queue(message.guild.id)
+
+                            message:addReaction("✅")
+                        else
+                            message:reply({
+                                embed = {
+                                    title = "Music - Delete",
+                                    description = "You Didn't Queue This Song!"
+                                },
+                                reference = { message = message, mention = true }
+                            })
+                        end
+                    else
+                        message:reply({
+                            embed = {
+                                title = "Music - Delete",
+                                description = "Invalid Queue ID!"
+                            },
+                            reference = { message = message, mention = true }
+                        })
+                    end
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Delete",
                             description = "No Music Queued!"
                         },
                         reference = { message = message, mention = true }
@@ -435,6 +566,38 @@ return function(client) return {
                         embed = {
                             title = "Music - Waiting",
                             description = "Invalid Waiting Music!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["mur"] = {
+            description = "Sets repeat mode",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+
+                if args[2] and (args[2] == "true" or args[2] == "false") then
+                    if args[2] == "true" then
+                        loopmu[message.guild.id] = true
+                    end
+                    if args[2] == "false" then
+                        loopmu[message.guild.id] = false
+                    end
+
+                    message:reply({
+                        embed = {
+                            title = "Music - Repeat",
+                            description = "Set Repeat To: "..args[2],
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Repeat",
+                            description = "Invalid Repeat State!"
                         },
                         reference = { message = message, mention = true }
                     })
