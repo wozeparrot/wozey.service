@@ -6,7 +6,40 @@ local enabled = {}
 return function(client) return {
     name = "Pinged",
     description = "Yells at you if you ping the bot (disabled by default)",
-    commands = {},
+    commands = {
+        ["pinged"] = {
+            description = "Sets pinged mode",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+
+                if args[2] and (args[2] == "true" or args[2] == "false") then
+                    if args[2] == "true" then
+                        enabled[message.guild.id] = true
+                    end
+                    if args[2] == "false" then
+                        enabled[message.guild.id] = false
+                    end
+
+                    message:reply({
+                        embed = {
+                            title = "Pinged",
+                            description = "Set To: "..args[2],
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                else
+                    message:reply({
+                        embed = {
+                            title = "Pinged",
+                            description = "Invalid State!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        }
+    },
     callbacks = {
         ["messageCreate"] = function(message)
             if not enabled[message.guild.id] then return end
