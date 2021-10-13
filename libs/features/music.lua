@@ -193,7 +193,7 @@ return function(client) return {
                     local json_ret = json.parse(ret)
 
                     -- check before queue
-                    if json_ret.fulltitle and json_ret.duration and json_ret.duration < 900 then
+                    if json_ret.fulltitle and json_ret.duration and json_ret.duration <= 900 then
                         local title = json_ret.fulltitle
                         local duration = time.fromSeconds(json_ret.duration):toString()
 
