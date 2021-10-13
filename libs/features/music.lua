@@ -4,6 +4,7 @@ local fs = require("fs")
 local path = require("path")
 local json = require("json")
 local time = require("discordia").Time
+local stopwatch = require("discordia").Stopwatch
 
 local queued = {}
 local status = {}
@@ -143,6 +144,9 @@ return function(client) return {
                 end
 
                 if args[2] then
+                    local sw = stopwatch()
+                    sw:start()
+
                     local url = message.content:gsub(";queue ", "", 1):gsub("<", ""):gsub(">", "")
 
                     -- spawn youtube-dl process
@@ -189,7 +193,7 @@ return function(client) return {
                     local json_ret = json.parse(ret)
 
                     -- check before queue
-                    if json_ret.fulltitle and json_ret.duration and json_ret.duration < 600 then
+                    if json_ret.fulltitle and json_ret.duration and json_ret.duration < 900 then
                         local title = json_ret.fulltitle
                         local duration = time.fromSeconds(json_ret.duration):toString()
 
@@ -221,6 +225,10 @@ return function(client) return {
                                         name = "Duration",
                                         value = duration,
                                         inline = true
+                                    },
+                                    {
+                                        name = "Queued In",
+                                        value = sw:getTime():toString()
                                     }
                                 }
                             },
@@ -509,7 +517,7 @@ return function(client) return {
                     message:reply({
                         embed = {
                             title = "Music - Next",
-                            description = "No Music Queued!"
+                            description = "No Music Queued / No Music Playing!"
                         },
                         reference = { message = message, mention = true }
                     })
