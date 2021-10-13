@@ -53,7 +53,7 @@
               wozeySrc = ./.;
             in
             final.writeShellScriptBin "wozey" ''
-              export PATH="${prev.yt-dlp}/bin:${prev.ffmpeg-normalize}/bin:${prev.busybox}/bin"
+              export PATH="${prev.yt-dlp}/bin:${prev.ffmpeg}/bin:${prev.ffmpeg-normalize}/bin:${prev.busybox}/bin"
               LD_LIBRARY_PATH="${prev.libopus}/lib:${prev.libsodium}/lib" WOZEY_ROOT=${wozeySrc} ${luvit}/bin/luvit ${wozeySrc}/main.lua "$@"
             '';
         };

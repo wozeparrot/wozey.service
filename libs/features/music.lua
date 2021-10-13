@@ -266,7 +266,8 @@ return function(client) return {
                     end
                     table.insert(fields, {
                         name = name,
-                        value = value
+                        value = value,
+                        inline = true
                     })
                 end
 

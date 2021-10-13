@@ -9,6 +9,7 @@ local client = discordia.Client()
 -- load features
 local prefix = ";"
 local features = {
+    require("features/pinged")(client),
     require("features/dynamic_voice_channels")(client),
     require("features/music")(client),
     require("features/anime")(client)
@@ -61,13 +62,15 @@ client:on("messageCreate", function(message)
                 if not command.owner_only then
                     table.insert(fields, {
                         name = prefix..name,
-                        value = command.description
+                        value = command.description,
+                        inline = true
                     })
                 else
                     if message.author == client.owner then
                         table.insert(fields, {
                             name = prefix..name.."*",
-                            value = command.description
+                            value = command.description,
+                            inline = true
                         })
                     end
                 end
