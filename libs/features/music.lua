@@ -140,11 +140,15 @@ return function(client) return {
                     local url = message.content:gsub(";queue ", "", 1):gsub("<", ""):gsub(">", "")
 
                     -- spawn youtube-dl process
+                    local stop = false
                     local stdout = uv.new_pipe(false)
                     local handle, pid = assert(uv.spawn("yt-dlp", {
                         args = { "-j", "--no-playlist", url },
                         stdio = { 0, stdout, 2 }
                     }, function(code)
+                        if code ~= 0 then
+                            stop = true
+                        end
                     end), "is yt-dlp installed and on $PATH?")
 
                     -- read data from stdout of youtube-dl
@@ -166,11 +170,12 @@ return function(client) return {
                     -- parse returned json
                     local json_ret = json.parse(ret)
 
-                    local title = json_ret.fulltitle
-                    local duration = time.fromSeconds(json_ret.duration):toString()
+                    -- check before queue
+                    if not stop and json_ret.fulltitle and json_ret.duration and json_ret.duration < 600 then
+                        local title = json_ret.fulltitle
+                        local duration = time.fromSeconds(json_ret.duration):toString()
 
-                    -- queue song
-                    if title and title:trim() ~= "" and json_ret.duration and json_ret.duration < 600 then
+                        -- queue song
                         if not queued[message.guild.id] then
                             queued[message.guild.id] = {}
                         end
@@ -204,6 +209,7 @@ return function(client) return {
                             reference = { message = message, mention = true }
                         })
 
+                        -- update queue
                         update_queue(message.guild.id)
                     else
                         message:reply({
