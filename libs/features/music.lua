@@ -438,8 +438,10 @@ return function(client) return {
                                     -- waiting for song to download
                                     if status[message.guild.id] then
                                         local f = io.open(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".wav", "rb")
-                                        f:seek("set", 44)
-                                        connection:playPCM(f:read("*a"))
+                                        if f then
+                                            f:seek("set", 44)
+                                            connection:playPCM(f:read("*a"))
+                                        end
                                         --connection:playFFmpeg(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".opus")
                                     else
                                         break
