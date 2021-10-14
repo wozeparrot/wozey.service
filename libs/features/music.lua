@@ -442,7 +442,6 @@ return function(client) return {
                                             f:seek("set", 44)
                                             connection:playPCM(f:read("*a"))
                                         end
-                                        --connection:playFFmpeg(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".opus")
                                     else
                                         break
                                     end
