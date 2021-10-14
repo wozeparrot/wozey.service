@@ -193,14 +193,30 @@ return function(client) return {
                     local json_ret = json.parse(ret)
 
                     -- check before queue
-                    if json_ret.fulltitle and json_ret.duration and json_ret.duration <= 900 then
+                    if json_ret.fulltitle and json_ret.duration and (json_ret.duration <= 900 or message.author == client.owner) then
                         local title = json_ret.fulltitle
                         local duration = time.fromSeconds(json_ret.duration):toString()
 
-                        -- queue song
+                        -- create array if not already created
                         if not queued[message.guild.id] then
                             queued[message.guild.id] = {}
                         end
+
+                        -- check if the song is already queued
+                        for i, song in ipairs(queued[message.guild.id]) do
+                            if song.title == title then
+                                message:reply({
+                                    embed = {
+                                        title = "Music - Queue",
+                                        description = "Already Queued!"
+                                    },
+                                    reference = { message = message, mention = true }
+                                })
+                                return
+                            end
+                        end
+
+                        -- queue song
                         table.insert(queued[message.guild.id], {
                             title = title,
                             duration = duration,
@@ -366,7 +382,7 @@ return function(client) return {
                         coroutine.wrap(function ()
                             status[message.guild.id] = coroutine.running()
                             while status[message.guild.id] do
-                                if queued[message.guild.id] and queued[message.guild.id][1].dl == 1 then
+                                if queued[message.guild.id] and queued[message.guild.id][1] and queued[message.guild.id][1].dl == 1 then
                                     -- send now playing message
                                     message:reply({
                                         embed = {
@@ -448,7 +464,9 @@ return function(client) return {
             exec = function(message)
                 if status[message.guild.id] then
                     status[message.guild.id] = nil
-                    message.guild.connection:stopStream()
+                    if message.guild.connection then
+                        message.guild.connection:stopStream()
+                    end
                     message:addReaction("✅")
                 else
                     message:reply({
@@ -540,7 +558,7 @@ return function(client) return {
                                 queued[message.guild.id][i].dl = 0
                             end
                             if i == 2 then
-                                os.execute("rm ./wrun/"..guild.."/music_next.opus")
+                                os.execute("rm ./wrun/"..message.guild.id.."/music_next.opus")
                             end
 
                             table.remove(queued[message.guild.id], i)
