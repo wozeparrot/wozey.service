@@ -215,7 +215,7 @@ return function(client) return {
                                 })
                                 return
                             end
-                            before_duration += song.raw_duration
+                            before_duration = before_duration + song.raw_duration
                         end
 
                         -- queue song
@@ -320,7 +320,7 @@ return function(client) return {
                         value = value,
                         inline = true
                     })
-                    total_duration += song.raw_duration
+                    total_duration = total_duration + song.raw_duration
                 end
 
                 message:reply({
