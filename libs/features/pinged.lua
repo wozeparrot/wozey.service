@@ -62,6 +62,7 @@ return function(client) return {
             if message.mentionedUsers:find(function(a)
                 return a == client.user
             end) then
+                table.insert(dead[message.guild.id], message.member)
                 coroutine.wrap(function()
                     message:reply({
                         content = "WHO HATH SUMMONED ME?"
@@ -90,7 +91,6 @@ return function(client) return {
                     timer.sleep(1000, coroutine.running())   
                     
                     count_msg:setContent("YOU ARE DEAD NOW")
-                    table.insert(dead[message.guild.id], message.member)
                     timer.setTimeout(30000, coroutine.wrap(function()
                         dead[message.guild.id] = nil
                         message:reply({
