@@ -252,11 +252,12 @@ return function(client) return {
                                     },
                                     {
                                         name = "Queued In",
-                                        value = sw:getTime():toString()
+                                        value = sw:getTime():toString(),
+                                        inline = true
                                     },
                                     {
                                         name = "Queue ID",
-                                        value = #queued[message.guild.id] + 1,
+                                        value = #queued[message.guild.id],
                                         inline = true
                                     }
                                 }
