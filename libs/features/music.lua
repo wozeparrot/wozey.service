@@ -203,6 +203,7 @@ return function(client) return {
                         end
 
                         -- check if the song is already queued
+                        local before_duration = 0
                         for i, song in ipairs(queued[message.guild.id]) do
                             if song.title == title then
                                 message:reply({
@@ -214,11 +215,13 @@ return function(client) return {
                                 })
                                 return
                             end
+                            before_duration += song.raw_duration
                         end
 
                         -- queue song
                         table.insert(queued[message.guild.id], {
                             title = title,
+                            raw_duration = json_ret.duration,
                             duration = duration,
                             url = url,
                             user = message.author.tag,
@@ -240,6 +243,11 @@ return function(client) return {
                                     {
                                         name = "Duration",
                                         value = duration,
+                                        inline = true
+                                    },
+                                    {
+                                        name = "Will Play In",
+                                        value = time.fromSeconds(before_duration):toString(),
                                         inline = true
                                     },
                                     {
@@ -289,6 +297,7 @@ return function(client) return {
 
                 -- generate fields for queued songs
                 local fields = {}
+                local total_duration = 0
                 for i, song in ipairs(queued[message.guild.id]) do
                     local name = ""
                     if i == 1 then
@@ -311,11 +320,12 @@ return function(client) return {
                         value = value,
                         inline = true
                     })
+                    total_duration += song.raw_duration
                 end
 
                 message:reply({
                     embed = {
-                        title = "Music - List",
+                        title = "Music - List (Queue Duration: "..time.fromSeconds(total_duration):toString()..")",
                         fields = fields
                     },
                     reference = { message = message, mention = true }
