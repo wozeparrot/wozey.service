@@ -154,7 +154,7 @@ return function(client) return {
                     local thread = running()
                     local stdout = uv.new_pipe(false)
                     local handle, pid = assert(uv.spawn("yt-dlp", {
-                        args = { "-j", "--no-playlist", url },
+                        args = { "-O", "%(title)s|||%(duration)s", "--no-playlist", url },
                         stdio = { 0, stdout, 2 }
                     }, function(code, signal)
                         if code ~= 0 or signal ~= 0 then
@@ -189,14 +189,13 @@ return function(client) return {
                         return
                     end
 
-                    -- parse returned json
-                    local json_ret = json.parse(ret)
+                    -- parse returned data
+                    local title = ret:split("|||")[1]
+                    local raw_duration = tonumber(ret:split("|||")[2])
+                    local duration = time.fromSeconds(raw_duration):toString()
 
                     -- check before queue
-                    if json_ret.fulltitle and json_ret.duration and (json_ret.duration <= 900 or message.author == client.owner) then
-                        local title = json_ret.fulltitle
-                        local duration = time.fromSeconds(json_ret.duration):toString()
-
+                    if title and raw_duration and (raw_duration <= 900 or message.author == client.owner) then
                         -- create array if not already created
                         if not queued[message.guild.id] then
                             queued[message.guild.id] = {}
@@ -221,7 +220,7 @@ return function(client) return {
                         -- queue song
                         table.insert(queued[message.guild.id], {
                             title = title,
-                            raw_duration = json_ret.duration,
+                            raw_duration = raw_duration,
                             duration = duration,
                             url = url,
                             user = message.author.tag,
