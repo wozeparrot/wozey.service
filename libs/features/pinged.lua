@@ -94,8 +94,7 @@ return function(client) return {
                     timer.setTimeout(30000, coroutine.wrap(function()
                         dead[message.guild.id] = nil
                         message:reply({
-                            content = "I HAVE REVIVED YOU... DON'T PING ME AGAIN",
-                            reference = { message = message, mention = true }
+                            content = "I HAVE REVIVED YOU "..message.author.mentionString.."... DON'T PING ME AGAIN"
                         })
                     end))
                 end)()
