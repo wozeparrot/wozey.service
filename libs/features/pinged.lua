@@ -102,10 +102,6 @@ return function(client) return {
 
             for i, m in ipairs(dead[message.guild.id]) do
                 if m == message.member then
-                    message:reply({
-                        content = m.mentionString.." IS DEAD (from pinging "..client.user.mentionString..")",
-                        reference = { message = message, mention = false }
-                    })
                     message:delete()
                 end
             end
