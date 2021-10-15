@@ -478,7 +478,7 @@ return function(client) return {
                     if not page or page < 1 then
                         page = 0
                     else
-                        page = page - 1
+                        page = math.floor(page - 1)
                     end
                 end
 

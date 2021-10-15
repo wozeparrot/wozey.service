@@ -130,7 +130,7 @@ return function(client) return {
                         embed = {
                             title = "Poll - Send",
                             description = "Could not find poll"
-                        },
+            },
                         reference = { message = poll_msg, mention = true }
                     })
                 end
@@ -164,10 +164,18 @@ return function(client) return {
                     end
 
                     if not tie then
+                        local winner = nil
+                        for i, field in ipairs(poll_msg.embed.fields) do
+                            if field.name:split("")[9] == chars[largest_count_id] then
+                                winner = field
+                                break
+                            end
+                        end
+
                         message.channel:send({
                             embed = {
                                 title = poll_msg.embed.title,
-                                description = "Winner: "..poll_msg.embed.fields[largest_count_id].value
+                                description = "Winner: "..winner.value
                             }
                         })
                     else

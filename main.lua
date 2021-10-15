@@ -38,7 +38,7 @@ for i, feature in ipairs(features) do
             else
                 if command.required_perms and message.author ~= client.owner then
                     for i, perm in ipairs(command.required_perms) do
-                        if not message.member.hasPermission(perm) then
+                        if not message.member:hasPermission(perm) then
                             return
                         end
                     end
@@ -100,7 +100,7 @@ client:on("messageCreate", function(message)
                     if feature.required_perms and message.author ~= client.owner then
                         local has_perms = true
                         for i, perm in ipairs(feature.required_perms) do
-                            if not message.member.hasPermission(perm) then
+                            if not message.member:hasPermission(perm) then
                                 has_perms = false
                                 break
                             end
