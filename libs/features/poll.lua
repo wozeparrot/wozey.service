@@ -6,6 +6,7 @@ local chars = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):split("")
 return function(client) return {
     name = "Polls",
     description = "Create polls that people can vote on",
+    owner_only = true,
     commands = {
         ["poll_create"] = {
             description = "Create a poll",
