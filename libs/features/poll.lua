@@ -189,7 +189,6 @@ return function(client) return {
                         reference = { message = poll_msg, mention = true }
                     })
                 end
-
             end
         }
     },
