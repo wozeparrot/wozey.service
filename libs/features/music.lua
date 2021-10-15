@@ -194,7 +194,7 @@ return function(client) return {
                     local raw_duration = tonumber(ret:split("|||||")[2])
 
                     -- check before queue
-                    if title and raw_duration and (raw_duration <= 900 or message.author == client.owner) then
+                    if title and title ~= "NA" and raw_duration and (raw_duration <= 900 or message.author == client.owner) then
                         local duration = time.fromSeconds(raw_duration):toString()
                         
                         -- create array if not already created
@@ -289,7 +289,6 @@ return function(client) return {
         },
         ["qlist"] = {
             description = "Queues a playlist for playback",
-            owner_only = true,
             exec = function(message)
                 local args = message.content:split(" ")
 
@@ -346,6 +345,7 @@ return function(client) return {
 
                     -- loop over playlist songs
                     local songs = ret:split("\n")
+                    local succeeded = {}
                     local failed = {}
                     local skipped = {}
                     for i, song in ipairs(songs) do
@@ -357,7 +357,7 @@ return function(client) return {
                         local url = song:split("|||||")[3]
 
                         -- check before queue
-                        if title and raw_duration and url and (raw_duration <= 900 or message.author == client.owner) then
+                        if title and title ~= "NA" and raw_duration and url and (raw_duration <= 900 or message.author == client.owner) then
                             local duration = time.fromSeconds(raw_duration):toString()
 
                             -- create array if not already created
@@ -387,6 +387,7 @@ return function(client) return {
                                     dl = 0,
                                     dl_handle = nil
                                 })
+                                table.insert(succeeded, song)
 
                                 message:reply({
                                     embed = {
@@ -440,7 +441,7 @@ return function(client) return {
                     message:reply({
                         embed = {
                             title = "Music - Queue List",
-                            description = "Failed: "..#failed.." | Skipped: "..#skipped
+                            description = "Succeeded: "..#succeeded.." | Failed: "..#failed.." | Skipped: "..#skipped
                         },
                         reference = { message = message, mention = true }
                     })
@@ -469,10 +470,23 @@ return function(client) return {
                     return
                 end
 
+                -- get page number
+                local page = 0
+                local args = message.content:split(" ")
+                if args[2] then
+                    page = tonumber(args[2])
+                    if not page or page < 1 then
+                        page = 0
+                    else
+                        page = page - 1
+                    end
+                end
+
                 -- generate fields for queued songs
                 local fields = {}
-                local total_duration = 0
-                for i, song in ipairs(queued[message.guild.id]) do
+                for i = (page * 12) + 1, math.min(((page + 1) * 12), #queued[message.guild.id]) do
+                    local song = queued[message.guild.id][i]
+
                     local name = ""
                     if i == 1 then
                         name = "*"..i..") "..song.title
@@ -494,12 +508,17 @@ return function(client) return {
                         value = value,
                         inline = true
                     })
+                end
+
+                -- get total duration
+                local total_duration = 0
+                for i, song in ipairs(queued[message.guild.id]) do
                     total_duration = total_duration + song.raw_duration
                 end
 
                 message:reply({
                     embed = {
-                        title = "Music - List (Queue Duration: "..time.fromSeconds(total_duration):toString()..")",
+                        title = "Music - List (Queue Duration: "..time.fromSeconds(total_duration):toString()..") | Page: "..page + 1,
                         fields = fields
                     },
                     reference = { message = message, mention = true }
@@ -861,6 +880,30 @@ return function(client) return {
                         embed = {
                             title = "Music - Volume",
                             description = "Invalid Music Volume!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["mus"] = {
+            description = "Shuffles not downloaded tracks",
+            owner_only = true,
+            exec = function(message)
+                if queued[message.guild.id] then
+                    for i = #queued[message.guild.id], 2, -1 do
+                        local j = math.random(i)
+                        if i > 2 and j > 2 then
+                            queued[message.guild.id][i], queued[message.guild.id][j] = queued[message.guild.id][j], queued[message.guild.id][i]
+                        end
+                    end
+
+                    message:addReaction("✅")
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Delete",
+                            description = "No Music Queued!"
                         },
                         reference = { message = message, mention = true }
                     })

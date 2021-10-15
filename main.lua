@@ -58,35 +58,37 @@ client:on("messageCreate", function(message)
         -- loop over features, one help embed per feature
         for i, feature in ipairs(features) do
             if not feature.hidden then
-                if feature.owner_only and message.author == client.owner then
-                    -- generate fields for commands
-                    local fields = {}
-                    for name, command in pairs(feature.commands) do
-                        if not command.owner_only then
-                            table.insert(fields, {
-                                name = prefix..name,
-                                value = command.description,
-                                inline = true
-                            })
-                        else
-                            if message.author == client.owner then
+                if feature.owner_only then
+                    if message.author == client.owner then
+                        -- generate fields for commands
+                        local fields = {}
+                        for name, command in pairs(feature.commands) do
+                            if not command.owner_only then
                                 table.insert(fields, {
-                                    name = prefix..name.."*",
+                                    name = prefix..name,
                                     value = command.description,
                                     inline = true
                                 })
+                            else
+                                if message.author == client.owner then
+                                    table.insert(fields, {
+                                        name = prefix..name.."*",
+                                        value = command.description,
+                                        inline = true
+                                    })
+                                end
                             end
                         end
-                    end
 
-                    message:reply({
-                        embed = {
-                            title = feature.name.."*",
-                            description = feature.description,
-                            fields = fields
-                        },
-                        reference = { message = message, mention = true },
-                    })
+                        message:reply({
+                            embed = {
+                                title = feature.name.."*",
+                                description = feature.description,
+                                fields = fields
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                    end
                 else
                     -- generate fields for commands
                     local fields = {}

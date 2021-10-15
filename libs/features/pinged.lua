@@ -6,6 +6,7 @@ local enabled = {}
 return function(client) return {
     name = "Pinged",
     description = "Yells at you if you ping the bot (disabled by default)",
+    owner_only = true,
     commands = {
         ["pinged"] = {
             description = "Sets pinged mode",

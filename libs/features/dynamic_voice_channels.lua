@@ -1,6 +1,7 @@
 return function(client) return {
     name = "Dynamic Voice Channels",
     description = "Manages temporary voice channels",
+    hidden = true,
     commands = {},
     callbacks = {
         ["voiceChannelJoin"] = function(user, channel)
