@@ -94,10 +94,14 @@ local function main()
     os.execute("rm -r ./wrun")
     fs.mkdirSync("./wrun")
 
-	local token_file = io.open(".token", "r")
+	-- run
+    local token_file = io.open(".token", "r")
 	local token = token_file:read()
 	token_file:close()
 	client:run("Bot "..token)
+
+    -- set some stuff
+    client:setGame("Send ;help... UwU")
 end
 
 main()

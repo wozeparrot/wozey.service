@@ -154,7 +154,7 @@ return function(client) return {
                     local thread = running()
                     local stdout = uv.new_pipe(false)
                     local handle, pid = assert(uv.spawn("yt-dlp", {
-                        args = { "-O", "%(title)s|||%(duration)s", "--no-playlist", url },
+                        args = { "-O", "%(title)s|||||%(duration)s", "--no-playlist", url },
                         stdio = { 0, stdout, 2 }
                     }, function(code, signal)
                         if code ~= 0 or signal ~= 0 then
@@ -190,12 +190,13 @@ return function(client) return {
                     end
 
                     -- parse returned data
-                    local title = ret:split("|||")[1]
-                    local raw_duration = tonumber(ret:split("|||")[2])
-                    local duration = time.fromSeconds(raw_duration):toString()
+                    local title = ret:split("|||||")[1]
+                    local raw_duration = tonumber(ret:split("|||||")[2])
 
                     -- check before queue
                     if title and raw_duration and (raw_duration <= 900 or message.author == client.owner) then
+                        local duration = time.fromSeconds(raw_duration):toString()
+                        
                         -- create array if not already created
                         if not queued[message.guild.id] then
                             queued[message.guild.id] = {}
@@ -279,6 +280,174 @@ return function(client) return {
                     message:reply({
                         embed = {
                             title = "Music - Queue",
+                            description = "Invalid URL!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["qlist"] = {
+            description = "Queues a playlist for playback",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+
+                -- set default volume if not set yet
+                if volume[message.guild.id] == nil then
+                    volume[message.guild.id] = "-23"
+                end
+
+                if args[2] then
+                    local sw = stopwatch()
+                    sw:start()
+
+                    local url = message.content:gsub(";qlist ", "", 1):gsub("<", ""):gsub(">", "")
+
+                    -- spawn youtube-dl process
+                    local stop = false
+                    local thread = running()
+                    local stdout = uv.new_pipe(false)
+                    local handle, pid = assert(uv.spawn("yt-dlp", {
+                        args = { "-O", "%(title)s|||||%(duration)s|||||%(url)s", "--flat-playlist", url },
+                        stdio = { 0, stdout, 2 }
+                    }, function(code, signal)
+                        if code ~= 0 or signal ~= 0 then
+                            stop = true
+                        end
+                        resume(thread)
+                    end), "is yt-dlp installed and on $PATH?")
+
+                    -- read data from stdout of youtube-dl
+                    local ret = ""
+                    stdout:read_start(function(err, data)
+                        assert(not err, err)
+                        if data then
+                            ret = ret..data
+                        end
+                    end)
+                    yield()
+
+                    -- close handle
+                    uv.close(handle)
+                    uv.shutdown(stdout)
+
+                    -- invalid url encountered
+                    if stop then
+                        message:reply({
+                            embed = {
+                                title = "Music - Queue List",
+                                description = "Invalid URL!"
+                            },
+                            reference = { message = message, mention = true }
+                        })
+                        return
+                    end
+
+                    -- loop over playlist songs
+                    local songs = ret:split("\n")
+                    local failed = {}
+                    local skipped = {}
+                    for i, song in ipairs(songs) do
+                        if i == #songs then break end
+
+                        -- parse song data
+                        local title = song:split("|||||")[1]
+                        local raw_duration = tonumber(song:split("|||||")[2])
+                        local url = song:split("|||||")[3]
+
+                        -- check before queue
+                        if title and raw_duration and url and (raw_duration <= 900 or message.author == client.owner) then
+                            local duration = time.fromSeconds(raw_duration):toString()
+
+                            -- create array if not already created
+                            if not queued[message.guild.id] then
+                                queued[message.guild.id] = {}
+                            end
+
+                            -- check if the song is already queued
+                            local skip = false
+                            local before_duration = 0
+                            for i, song in ipairs(queued[message.guild.id]) do
+                                if song.title == title then
+                                    skip = true
+                                    table.insert(skipped, song)
+                                end
+                                before_duration = before_duration + song.raw_duration
+                            end
+                            if not skip then
+                                -- queue song
+                                table.insert(queued[message.guild.id], {
+                                    title = title,
+                                    raw_duration = raw_duration,
+                                    duration = duration,
+                                    url = url,
+                                    user = message.author.tag,
+                                    message = message,
+                                    dl = 0,
+                                    dl_handle = nil
+                                })
+
+                                message:reply({
+                                    embed = {
+                                        title = "Music - Queued",
+                                        description = title,
+                                        fields = {
+                                            {
+                                                name = "Requested By",
+                                                value = message.author.tag,
+                                                inline = true
+                                            },
+                                            {
+                                                name = "Duration",
+                                                value = duration,
+                                                inline = true
+                                            },
+                                            {
+                                                name = "Will Play In",
+                                                value = time.fromSeconds(before_duration):toString(),
+                                                inline = true
+                                            },
+                                            {
+                                                name = "Queued In",
+                                                value = sw:getTime():toString(),
+                                                inline = true
+                                            },
+                                            {
+                                                name = "Queue ID",
+                                                value = #queued[message.guild.id],
+                                                inline = true
+                                            },
+                                            {
+                                                name = "Playlist ID",
+                                                value = i,
+                                                inline = true
+                                            }
+                                        }
+                                    },
+                                    reference = { message = message, mention = true }
+                                })
+
+                                -- update queue
+                                update_queue(message.guild.id)
+                            end
+                        else
+                            table.insert(failed, song)
+                        end
+                    end
+
+                    -- report how many failed
+                    message:reply({
+                        embed = {
+                            title = "Music - Queue List",
+                            description = "Failed: "..#failed.." | Skipped: "..#skipped
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Queue List",
                             description = "Invalid URL!"
                         },
                         reference = { message = message, mention = true }
