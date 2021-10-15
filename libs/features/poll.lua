@@ -172,12 +172,14 @@ return function(client) return {
                             end
                         end
 
-                        message.channel:send({
-                            embed = {
-                                title = poll_msg.embed.title,
-                                description = "Winner: "..winner.value
-                            }
-                        })
+                        if winner then
+                            message.channel:send({
+                                embed = {
+                                    title = poll_msg.embed.title,
+                                    description = "Winner: "..winner.value
+                                }
+                            })
+                        end
                     else
                         message.channel:send({
                             embed = {
