@@ -2,11 +2,19 @@ local https = require("https")
 local json = require("json")
 
 local chars = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):split("")
+local reactions = {
+    "🇦",
+    "🇧",
+    "🇨",
+    "🇩",
+    "🇪",
+    "🇫"
+}
 
 return function(client) return {
     name = "Polls",
     description = "Create polls that people can vote on",
-    owner_only = true,
+    required_perms = { 0x00002000 },
     commands = {
         ["poll_create"] = {
             description = "Create a poll",
@@ -24,7 +32,7 @@ return function(client) return {
         ["poll_oadd"] = {
             description = "Add an option to a poll",
             exec = function(message)
-                local option = message.content:gsub(";poll-oadd ", "", 1)
+                local option = message.content:gsub(";poll_oadd ", "", 1)
 
                 -- get old poll message
                 local poll_msg = message.channel:getPinnedMessages():find(function(a)
@@ -38,17 +46,20 @@ return function(client) return {
                         for i, o in ipairs(poll_msg.embed.fields) do
                             table.insert(fields, {
                                 name = "Option: "..chars[i],
-                                value = o.value
+                                value = o.value,
+                                inline = true
                             })
                         end
                         table.insert(fields, {
                             name = "Option: "..chars[#poll_msg.embed.fields + 1],
-                            value = option
+                            value = option,
+                            inline = true
                         })
                     else
                         table.insert(fields, {
                             name = "Option: A",
-                            value = option
+                            value = option,
+                            inline = true
                         })
                     end
                     local new_poll_msg = poll_msg:reply({
@@ -92,7 +103,7 @@ return function(client) return {
             end
         },
         ["poll_send"] = {
-            description = "Send a poll into a chennel for voting",
+            description = "Send a poll into a channel for voting",
             exec = function(message)
                 local channel = message.mentionedChannels.first
 
@@ -106,8 +117,14 @@ return function(client) return {
                         embed = poll_msg.embed
                     })
 
+                    for i, o in ipairs(poll_msg.embed.fields) do
+                        new_poll_msg:addReaction(reactions[i])
+                    end
+
                     poll_msg:unpin()
                     new_poll_msg:pin()
+
+                    channel:getLastMessage():delete()
                 else
                     message:reply({
                         embed = {
@@ -117,6 +134,62 @@ return function(client) return {
                         reference = { message = poll_msg, mention = true }
                     })
                 end
+            end
+        },
+        ["poll_end"] = {
+            description = "End voting on a poll",
+            exec = function(message)
+                message:delete()
+
+                local poll_msg = message.channel:getPinnedMessages():find(function(a)
+                    return a.author == client.user and a.embed
+                end)
+
+                if poll_msg then
+                    poll_msg:unpin()
+
+                    local largest_count = 0
+                    local largest_count_id = nil
+                    local tie = false
+                    for i, reaction in ipairs(poll_msg.reactions:toArray()) do
+                        if reaction.count > largest_count then
+                            largest_count = reaction.count
+                            largest_count_id = i
+                            tie = false
+                        else
+                            if reaction.count == largest_count then
+                                tie = true
+                            end
+                        end
+                    end
+
+                    if not tie then
+                        message.channel:send({
+                            embed = {
+                                title = poll_msg.embed.title,
+                                description = "Winner: "..poll_msg.embed.fields[largest_count_id].value
+                            }
+                        })
+                    else
+                        message.channel:send({
+                            embed = {
+                                title = poll_msg.embed.title,
+                                description = "Tie"
+                            }
+                        })
+                    end
+
+                    poll_msg:delete()
+                else
+                    message:reply({
+                        embed = {
+                            title = "Poll - End",
+                            description = "Could not find poll"
+                        },
+                        reference = { message = poll_msg, mention = true }
+                    })
+                end
+
             end
         }
     },

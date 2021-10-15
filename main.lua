@@ -36,6 +36,13 @@ for i, feature in ipairs(features) do
                     command.exec(message)
                 end
             else
+                if command.required_perms and message.author ~= client.owner then
+                    for i, perm in ipairs(command.required_perms) do
+                        if not message.member.hasPermission(perm) then
+                            return
+                        end
+                    end
+                end
                 -- execute if found
                 command.exec(message)
             end
@@ -90,34 +97,75 @@ client:on("messageCreate", function(message)
                         })
                     end
                 else
-                    -- generate fields for commands
-                    local fields = {}
-                    for name, command in pairs(feature.commands) do
-                        if not command.owner_only then
-                            table.insert(fields, {
-                                name = prefix..name,
-                                value = command.description,
-                                inline = true
+                    if feature.required_perms and message.author ~= client.owner then
+                        local has_perms = true
+                        for i, perm in ipairs(feature.required_perms) do
+                            if not message.member.hasPermission(perm) then
+                                has_perms = false
+                                break
+                            end
+                        end
+
+                        if has_perms then
+                            -- generate fields for commands
+                            local fields = {}
+                            for name, command in pairs(feature.commands) do
+                                if not command.owner_only then
+                                    table.insert(fields, {
+                                        name = prefix..name,
+                                        value = command.description,
+                                        inline = true
+                                    })
+                                else
+                                    if message.author == client.owner then
+                                        table.insert(fields, {
+                                            name = prefix..name.."*",
+                                            value = command.description,
+                                            inline = true
+                                        })
+                                    end
+                                end
+                            end
+
+                            message:reply({
+                                embed = {
+                                    title = feature.name,
+                                    description = feature.description,
+                                    fields = fields
+                                },
+                                reference = { message = message, mention = true },
                             })
-                        else
-                            if message.author == client.owner then
+                        end
+                    else
+                        -- generate fields for commands
+                        local fields = {}
+                        for name, command in pairs(feature.commands) do
+                            if not command.owner_only then
                                 table.insert(fields, {
-                                    name = prefix..name.."*",
+                                    name = prefix..name,
                                     value = command.description,
                                     inline = true
                                 })
+                            else
+                                if message.author == client.owner then
+                                    table.insert(fields, {
+                                        name = prefix..name.."*",
+                                        value = command.description,
+                                        inline = true
+                                    })
+                                end
                             end
                         end
-                    end
 
-                    message:reply({
-                        embed = {
-                            title = feature.name,
-                            description = feature.description,
-                            fields = fields
-                        },
-                        reference = { message = message, mention = true },
-                    })
+                        message:reply({
+                            embed = {
+                                title = feature.name,
+                                description = feature.description,
+                                fields = fields
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                    end
                 end
             end
         end
