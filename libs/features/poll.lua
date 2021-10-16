@@ -151,7 +151,7 @@ return function(client) return {
                     local largest_count = 0
                     local largest_count_id = nil
                     local tie = false
-                    for i, reaction in ipairs(poll_msg.reactions:toArray()) do
+                    for i, reaction in ipairs(poll_msg.reactions:toArray("emojiHash")) do
                         if reaction.count > largest_count then
                             largest_count = reaction.count
                             largest_count_id = i
@@ -166,8 +166,6 @@ return function(client) return {
                     if not tie then
                         local winner = nil
                         for i, field in ipairs(poll_msg.embed.fields) do
-                            print(largest_count_id, chars[largest_count_id], field.name:split("")[9])
-
                             if field.name:split("")[9] == chars[largest_count_id] then
                                 winner = field
                                 break
