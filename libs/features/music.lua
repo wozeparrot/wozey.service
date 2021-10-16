@@ -852,7 +852,8 @@ return function(client) return {
 
                 message:reply({
                     embed = {
-                        title = "Music - List (Queue Duration: "..time.fromSeconds(total_duration):toString()..") | Page: "..page + 1,
+                        title = "Music - List | Songs: "..#queued[message.guild.id].." | Page: "..page + 1,
+                        description = "Queue Duration: "..time.fromSeconds(total_duration):toString(),
                         fields = fields
                     },
                     reference = { message = message, mention = true }
@@ -1105,7 +1106,7 @@ return function(client) return {
                                 queued[message.guild.id][i].dl = 0
                             end
                             if i == 2 then
-                                os.execute("rm ./wrun/"..message.guild.id.."/music_next.opus")
+                                os.execute("rm ./wrun/"..message.guild.id.."/music_next.wav")
                             end
 
                             table.remove(queued[message.guild.id], i)
@@ -1124,13 +1125,41 @@ return function(client) return {
                             })
                         end
                     else
-                        message:reply({
-                            embed = {
-                                title = "Music - Delete",
-                                description = "Invalid Queue ID!"
-                            },
-                            reference = { message = message, mention = true }
-                        })
+                        -- handle first song differently
+                        if args[2] == "1" then
+                            if not status[message.guild.id] and not message.guild.connection then
+                                -- only allow person who queued to delete their song
+                                if queued[message.guild.id][1].user == message.author.tag or message.author == client.owner then
+                                    next_song(message.guild.id, true)
+
+                                    message:addReaction("✅")
+                                else
+                                    message:reply({
+                                        embed = {
+                                            title = "Music - Delete",
+                                            description = "You Didn't Queue This Song!"
+                                        },
+                                        reference = { message = message, mention = true }
+                                    })
+                                end
+                            else
+                                message:reply({
+                                    embed = {
+                                        title = "Music - Delete",
+                                        description = "Song is currently playing! (use ;next)"
+                                    },
+                                    reference = { message = message, mention = true }
+                                })
+                            end
+                        else
+                            message:reply({
+                                embed = {
+                                    title = "Music - Delete",
+                                    description = "Invalid Queue ID!"
+                                },
+                                reference = { message = message, mention = true }
+                            })
+                        end
                     end
                 else
                     message:reply({
@@ -1283,6 +1312,27 @@ return function(client) return {
                         reference = { message = message, mention = true }
                     })
                 end
+            end
+        },
+        ["muc"] = {
+            description = "Clears the queue",
+            owner_only = true,
+            exec = function(message)
+                status[message.guild.id] = nil
+                if message.guild.connection then
+                    message.guild.connection:stopStream()
+                end
+                if queued[message.guild.id] then
+                    if queued[message.guild.id][1].dl == 2 then
+                        uv.process_kill(queued[message.guild.id][1].dl_handle, "sigkill")
+                    end
+                    if queued[message.guild.id][2].dl == 2 then
+                        uv.process_kill(queued[message.guild.id][2].dl_handle, "sigkill")
+                    end
+
+                    queued[message.guild.id] = nil
+                end
+                message:addReaction("✅")
             end
         },
     },
