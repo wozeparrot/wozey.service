@@ -948,11 +948,12 @@ return function(client) return {
                                     })
 
                                     -- play song
-                                    local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav")
-                                    if f then
-                                        f:seek("set", 44)
-                                        connection:playPCM(f:read("*a"))
-                                    end
+                                    --local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav")
+                                    --if f then
+                                    --    f:seek("set", 44)
+                                    --    connection:playPCM(f:read("*a"))
+                                    --end
+                                    connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.wav")
 
                                     -- switch to next song
                                     if status[message.guild.id] then
