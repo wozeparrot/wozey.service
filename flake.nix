@@ -69,10 +69,12 @@
             overlays = [ overlay ];
           };
         in
-        {
+        rec {
           packages = with pkgs.wozey; {
             inherit wozey;
           };
+          defaultPackages = packages.wozey;
+          defaultApp = packages.wozey;
         }
       ) // {
       overlay = overlay;
