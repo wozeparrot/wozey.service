@@ -26,7 +26,7 @@ local function update_queue(guild)
             if code == 0 and signal == 0 then
                 uv.close(queued[guild][1].dl_handle)
                 queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.opus" },
+                    args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.wav" },
                     stdio = { nil, 1, 2 }
                 }, function(code, signal)
                     if code == 0 and signal == 0 then
@@ -56,7 +56,7 @@ local function update_queue(guild)
             if code == 0 and signal == 0 then
                 uv.close(queued[guild][2].dl_handle)
                 queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.opus" },
+                    args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.wav" },
                     stdio = { nil, 1, 2 }
                 }, function(code, signal)
                     if code == 0 and signal == 0 then
@@ -109,7 +109,7 @@ local function next_song(guild, force)
         -- remove curr and switch to next
         table.remove(queued[guild], 1)
         if queued[guild][1].dl == 1 then
-            fs.renameSync("./wrun/"..guild.."/music_next.opus", "./wrun/"..guild.."/music_curr.opus")
+            fs.renameSync("./wrun/"..guild.."/music_next.wav", "./wrun/"..guild.."/music_curr.wav")
         else
             queued[guild][1].dl = 0
             os.execute("rm -r ./wrun/"..guild)
@@ -122,7 +122,7 @@ local function next_song(guild, force)
     end
 
     -- move next to curr
-    fs.renameSync("./wrun/"..guild.."/music_next.opus", "./wrun/"..guild.."/music_curr.opus")
+    fs.renameSync("./wrun/"..guild.."/music_next.wav", "./wrun/"..guild.."/music_curr.wav")
     table.remove(queued[guild], 1)
 
     -- fetch new next
@@ -608,7 +608,11 @@ return function(client) return {
                                     })
 
                                     -- play song
-                                    connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.opus")
+                                    local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav")
+                                    if f then
+                                        f:seek("set", 44)
+                                        connection:playPCM(f:read("*a"))
+                                    end
 
                                     -- switch to next song
                                     if status[message.guild.id] then
