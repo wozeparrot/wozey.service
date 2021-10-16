@@ -8,7 +8,11 @@ local reactions = {
     "🇨",
     "🇩",
     "🇪",
-    "🇫"
+    "🇫",
+    "🇬",
+    "🇭",
+    "🇮",
+    "🇯"
 }
 
 return function(client) return {
