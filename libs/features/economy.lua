@@ -8,7 +8,7 @@ return function(client) return {
         ["money"] = {
             description = "Returns the amount of money you currently have",
             exec = function(message)
-                local money_role = message.member.roles:find(function(a) a.name == "ᴥお金ᴥ" end)
+                local money_role = message.member.roles:find(function(a) return a.name == "ᴥお金ᴥ" end)
                 if money_role then
                     message:reply({
                         embed = {
