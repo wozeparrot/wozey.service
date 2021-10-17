@@ -57,7 +57,7 @@ return function(client) return {
                 dead[message.guild.id] = {}
             end
 
-            if dead[message.guild.id][message.member] then return end
+            if dead[message.guild.id][message.member] ~= nil then return end
 
             -- match for curly braces to search
             if message.mentionedUsers:find(function(a)
@@ -65,6 +65,8 @@ return function(client) return {
             end) then
                 table.insert(dead[message.guild.id], message.member)
                 coroutine.wrap(function()
+                    if dead[message.guild.id][message.member] ~= nil then return end
+
                     message:reply({
                         content = "WHO HATH SUMMONED ME?"
                     })
