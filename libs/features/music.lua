@@ -1324,10 +1324,10 @@ return function(client) return {
                     message.guild.connection:stopStream()
                 end
                 if queued[message.guild.id] then
-                    if queued[message.guild.id][1].dl == 2 then
+                    if queued[message.guild.id[1] and queued[message.guild.id][1].dl == 2 then
                         uv.process_kill(queued[message.guild.id][1].dl_handle, "sigkill")
                     end
-                    if queued[message.guild.id][2].dl == 2 then
+                    if queued[message.guild.id][2] and queued[message.guild.id][2].dl == 2 then
                         uv.process_kill(queued[message.guild.id][2].dl_handle, "sigkill")
                     end
 
@@ -1337,11 +1337,5 @@ return function(client) return {
             end
         },
     },
-    callbacks = {
-        ["voiceChannelLeave"] = function(user, channel)
-	        if #channel.connectedMembers == 0 and channel.connection then
-                channel.connection:close()
-	        end
-        end
-    }
+    callbacks = {}
 }end
