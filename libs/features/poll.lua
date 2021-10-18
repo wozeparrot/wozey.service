@@ -12,7 +12,15 @@ local reactions = {
     "🇬",
     "🇭",
     "🇮",
-    "🇯"
+    "🇯",
+    "🇰",
+    "🇱",
+    "🇲",
+    "🇳",
+    "🇴",
+    "🇵",
+    "🇶",
+    "🇷"
 }
 
 return function(client) return {
@@ -89,12 +97,36 @@ return function(client) return {
         ["poll_orem"] = {
             description = "Remove an option from a poll",
             exec = function(message)
+                local option = message.content:gsub(";poll_orem ", "", 1)
+
                 -- get old poll message
                 local poll_msg = message.channel:getPinnedMessages():find(function(a)
                     return a.author == client.user and a.embed
                 end)
 
                 if poll_msg then
+                    local fields = {}
+                    local adjusted_i = 1
+                    for i, o in ipairs(poll_msg.embed.fields) do
+                        if o.name:split("")[9] ~= option then
+                            table.insert(fields, {
+                                name = "Option: "..chars[adjusted_i],
+                                value = o.value,
+                                inline = true
+                            })
+                            adjusted_i = adjusted_i + 1
+                        end
+                    end
+
+                    local new_poll_msg = poll_msg:reply({
+                        embed = {
+                            title = poll_msg.embed.title,
+                            fields = fields
+                        },
+                        reference = { message = poll_msg, mention = false }
+                    })
+                    poll_msg:unpin()
+                    new_poll_msg:pin()
                 else
                     message:reply({
                         embed = {
