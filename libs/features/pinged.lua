@@ -53,19 +53,15 @@ return function(client) return {
             if message.author.bot then return end
 
             -- if they are dead do not do anything
-            if not dead[message.guild.id] then
-                dead[message.guild.id] = {}
-            end
-
-            if dead[message.guild.id][message.author.id] ~= nil then return end
+            if dead[message.author.id] ~= nil then return end
 
             -- match for curly braces to search
             if message.mentionedUsers:find(function(a)
                 return a == client.user
             end) then
-                table.insert(dead[message.guild.id], message.author.id)
+                table.insert(dead, message.author.id)
                 coroutine.wrap(function()
-                    if dead[message.guild.id][message.author.id] ~= nil then return end
+                    if dead[message.author.id] ~= nil then return end
 
                     message:reply({
                         content = "WHO HATH SUMMONED ME?"
@@ -95,7 +91,7 @@ return function(client) return {
                     
                     count_msg:setContent("YOU ARE DEAD NOW")
                     timer.setTimeout(30000, coroutine.wrap(function()
-                        dead[message.guild.id][message.author.id] = nil
+                        dead[message.author.id] = nil
                         message:reply({
                             content = "I HAVE REVIVED YOU "..message.author.mentionString.."... DON'T PING ME AGAIN"
                         })
@@ -103,7 +99,7 @@ return function(client) return {
                 end)()
             end
 
-            for i, m in ipairs(dead[message.guild.id]) do
+            for i, m in ipairs(dead) do
                 if m == message.author.id then
                     message:delete()
                 end
