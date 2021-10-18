@@ -1324,7 +1324,7 @@ return function(client) return {
                     message.guild.connection:stopStream()
                 end
                 if queued[message.guild.id] then
-                    if queued[message.guild.id[1] and queued[message.guild.id][1].dl == 2 then
+                    if queued[message.guild.id][1] and queued[message.guild.id][1].dl == 2 then
                         uv.process_kill(queued[message.guild.id][1].dl_handle, "sigkill")
                     end
                     if queued[message.guild.id][2] and queued[message.guild.id][2].dl == 2 then
