@@ -20,7 +20,15 @@ local reactions = {
     "🇴",
     "🇵",
     "🇶",
-    "🇷"
+    "🇷",
+    "🇸",
+    "🇹",
+    "🇺",
+    "🇻",
+    "🇼",
+    "🇽",
+    "🇾",
+    "🇿"
 }
 
 return function(client) return {
@@ -133,6 +141,32 @@ return function(client) return {
                             title = "Poll - Option Remove",
                             description = "Could not find poll"
                         },
+                        reference = { message = poll_msg, mention = true }
+                    })
+                end
+            end
+        },
+        ["poll_curr"] = {
+            description = "Link to the current poll",
+            exec = function(message)
+                -- get old poll message
+                local poll_msg = message.channel:getPinnedMessages():find(function(a)
+                    return a.author == client.user and a.embed
+                end)
+
+                if poll_msg then
+                    local new_poll_msg = message.channel:send({
+                        embed = poll_msg.embed
+                    })
+
+                    poll_msg:unpin()
+                    new_poll_msg:pin()
+                else
+                    message:reply({
+                        embed = {
+                            title = "Poll - Send",
+                            description = "Could not find poll"
+            },
                         reference = { message = poll_msg, mention = true }
                     })
                 end
