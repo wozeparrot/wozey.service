@@ -1067,7 +1067,7 @@ return function(client) return {
             exec = function(message)
                 if status[message.guild.id] and queued[message.guild.id] then
                     -- only allow person who queued to skip their song
-                    if queued[message.guild.id][1].user == message.author.tag or message.author == client.owner or not message.guild.connection.channel.connectedMembers:find(function (a) queued[message.guild.id][1].user == a.user.tag end) then
+                    if queued[message.guild.id][1].user == message.author.tag or message.author == client.owner or not message.guild.connection.channel.connectedMembers:find(function (a) return queued[message.guild.id][1].user == a.user.tag end) then
                         nexted[message.guild.id] = true
                         message.guild.connection:stopStream()
                         message:addReaction("✅")
