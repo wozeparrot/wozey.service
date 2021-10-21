@@ -9,12 +9,12 @@
         wozey = rec {
           luvi = final.stdenv.mkDerivation rec {
             pname = "luvi";
-            version = "v2.12.0";
+            version = "v2.13.0";
             src = prev.fetchgit {
               url = "https://github.com/luvit/luvi.git";
               rev = version;
               leaveDotGit = true;
-              sha256 = "sha256-vBARlOyW+leh5d9gh/5LzqicKLpMNldgod4zobQ2Xac=";
+              sha256 = "sha256-gZ8E523qOhgTCpFtOQt71f5D0Z7/usCAsZ3Jt9cV5oo=";
             };
 
             nativeBuildInputs = with prev; [
