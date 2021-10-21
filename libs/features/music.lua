@@ -8,6 +8,7 @@ local stopwatch = require("discordia").Stopwatch
 
 local queued = {}
 local status = {}
+local played = {}
 local nexted = {}
 local waitmu = {}
 local loopmu = {}
@@ -878,6 +879,10 @@ return function(client) return {
                         reference = { message = message, mention = true }
                     })
                 else
+                    if played[message.guild.id] == nil then
+                        played[message.guild.id] = stopwatch()
+                    end
+
                     message:reply({
                         embed = {
                             title = "Music - Current",
@@ -886,6 +891,11 @@ return function(client) return {
                                 {
                                     name = "Requested By",
                                     value = queued[message.guild.id][1].user,
+                                    inline = true
+                                },
+                                {
+                                    name = "Played",
+                                    value = played[message.guild.id]:getTime():toString(),
                                     inline = true
                                 },
                                 {
@@ -918,6 +928,11 @@ return function(client) return {
                     repemu[message.guild.id] = false
                 end
 
+                -- set default played if not set yet
+                if played[message.guild.id] == nil then
+                    played[message.guild.id] = stopwatch()
+                end
+
                 if message.member.voiceChannel then
                     if not status[message.guild.id] then
                         message:addReaction("✅")
@@ -948,9 +963,11 @@ return function(client) return {
                                     })
 
                                     -- play song
-                                    local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav")
+                                    local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav", "rb")
                                     if f then
                                         f:seek("set", 44)
+                                        played[message.guild.id]:reset()
+                                        played[message.guild.id]:start()
                                         connection:playPCM(f)
                                     end
                                     --connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.wav")
@@ -1307,7 +1324,7 @@ return function(client) return {
                 else
                     message:reply({
                         embed = {
-                            title = "Music - Delete",
+                            title = "Music - Shuffle",
                             description = "No Music Queued!"
                         },
                         reference = { message = message, mention = true }
@@ -1336,6 +1353,37 @@ return function(client) return {
                 message:addReaction("✅")
             end
         },
+        ["mum"] = {
+            description = "Swaps the places of two songs in the queue",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+                if not args[2] or not args[3] or args[2] == "1" or args[3] == "1" or args[2] == "2" or args[3] == "2" or not tonumber(args[2]) or not tonumber(args[2]) then
+                    message:reply({
+                        embed = {
+                            title = "Music - Move",
+                            description = "Invalid Queued IDs!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                    return
+                end
+
+                if queued[message.guild.id] then
+                    queued[message.guild.id][tonumber(args[2])], queued[message.guild.id][tonumber(args[3])] = queued[message.guild.id][tonumber(args[3])], queued[message.guild.id][tonumber(args[2])]
+
+                    message:addReaction("✅")
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Move",
+                            description = "No Music Queued!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        }
     },
     callbacks = {}
 }end
