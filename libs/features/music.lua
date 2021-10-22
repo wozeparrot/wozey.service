@@ -28,7 +28,7 @@ local function update_queue(guild)
     if queued[guild][1] and queued[guild][1].dl == 0 then
         queued[guild][1].dl = 2
         queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
-            args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
+            args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
             stdio = { nil, 1, 2 }
         }, function(code, signal)
             if code == 0 and signal == 0 then
@@ -37,12 +37,12 @@ local function update_queue(guild)
                 -- check if we are normalizing
                 if normmu[guild] then
                     queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.wav" },
+                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.wav", "-o", "./wrun/"..guild.."/music_curr.wav" },
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
                             uv.close(queued[guild][1].dl_handle)
-                            os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+                            os.execute("rm ./wrun/"..guild.."/music_curr_pre.wav")
                             queued[guild][1].dl = 1
                         end
                         if code == 1 then
@@ -56,7 +56,7 @@ local function update_queue(guild)
                     end), "is ffmpeg-normalize installed and on $PATH?")
                 else
                     uv.close(queued[guild][1].dl_handle)
-                    os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+                    os.execute("mv ./wrun/"..guild.."/music_curr_pre.wav ./wrun/"..guild.."/music_curr.wav")
                     queued[guild][1].dl = 1
                 end
             end
@@ -66,7 +66,7 @@ local function update_queue(guild)
     if queued[guild][2] and queued[guild][2].dl == 0 then
         queued[guild][2].dl = 2
         queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
-            args = { "-x", "--audio-format", "opus", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
+            args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
             stdio = { nil, 1, 2 }
         }, function(code, signal)
             if code == 0 and signal == 0 then
@@ -75,12 +75,12 @@ local function update_queue(guild)
                 -- check if we are normalizing
                 if normmu[guild] then
                     queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.wav" },
+                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.wav", "-o", "./wrun/"..guild.."/music_next.wav" },
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
                             uv.close(queued[guild][2].dl_handle)
-                            os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+                            os.execute("rm ./wrun/"..guild.."/music_next_pre.wav")
                             queued[guild][2].dl = 1
                         end
                         if code == 1 then
@@ -94,7 +94,7 @@ local function update_queue(guild)
                     end), "is ffmpeg-normalize installed and on $PATH?")
                 else
                     uv.close(queued[guild][2].dl_handle)
-                    os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+                    os.execute("mv ./wrun/"..guild.."/music_next_pre.wav ./wrun/"..guild.."/music_next.wav")
                     queued[guild][2].dl = 1
                 end
             end
