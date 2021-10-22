@@ -24,6 +24,8 @@ local function update_queue(guild)
         normmu[guild] = true
     end
 
+    if not queued[guild] then return end
+
     -- fetch current song
     if queued[guild][1] and queued[guild][1].dl == 0 then
         queued[guild][1].dl = 2
@@ -32,8 +34,6 @@ local function update_queue(guild)
             stdio = { nil, 1, 2 }
         }, function(code, signal)
             if code == 0 and signal == 0 then
-                uv.close(queued[guild][1].dl_handle)
-
                 -- check if we are normalizing
                 if normmu[guild] then
                     queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
@@ -41,7 +41,6 @@ local function update_queue(guild)
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
-                            uv.close(queued[guild][1].dl_handle)
                             os.execute("rm ./wrun/"..guild.."/music_curr_pre.wav")
                             queued[guild][1].dl = 1
                         end
@@ -55,7 +54,6 @@ local function update_queue(guild)
                         end
                     end), "is ffmpeg-normalize installed and on $PATH?")
                 else
-                    uv.close(queued[guild][1].dl_handle)
                     os.execute("mv ./wrun/"..guild.."/music_curr_pre.wav ./wrun/"..guild.."/music_curr.wav")
                     queued[guild][1].dl = 1
                 end
@@ -70,8 +68,6 @@ local function update_queue(guild)
             stdio = { nil, 1, 2 }
         }, function(code, signal)
             if code == 0 and signal == 0 then
-                uv.close(queued[guild][2].dl_handle)
-
                 -- check if we are normalizing
                 if normmu[guild] then
                     queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
@@ -79,7 +75,6 @@ local function update_queue(guild)
                         stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
-                            uv.close(queued[guild][2].dl_handle)
                             os.execute("rm ./wrun/"..guild.."/music_next_pre.wav")
                             queued[guild][2].dl = 1
                         end
@@ -93,7 +88,6 @@ local function update_queue(guild)
                         end
                     end), "is ffmpeg-normalize installed and on $PATH?")
                 else
-                    uv.close(queued[guild][2].dl_handle)
                     os.execute("mv ./wrun/"..guild.."/music_next_pre.wav ./wrun/"..guild.."/music_next.wav")
                     queued[guild][2].dl = 1
                 end
@@ -1010,8 +1004,6 @@ return function(client) return {
                                 else
                                     -- waiting for song to download
                                     if status[message.guild.id] then
-                                        update_queue(message.guild.id)
-
                                         local f = io.open(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".wav", "rb")
                                         if f then
                                             f:seek("set", 44)
