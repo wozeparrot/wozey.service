@@ -1050,6 +1050,7 @@ return function(client) return {
                     if message.guild.connection then
                         message.guild.connection:stopStream()
                     end
+                    played[message.guild.id]:reset()
                     message:addReaction("✅")
                 else
                     message:reply({
