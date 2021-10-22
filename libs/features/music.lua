@@ -14,9 +14,15 @@ local waitmu = {}
 local loopmu = {}
 local repemu = {}
 local volume = {}
+local normmu = {}
 
 local function update_queue(guild)
     fs.mkdirSync("./wrun/"..guild)
+
+    -- set default normmu is not set yet
+    if normmu[guild] == nul then
+        normmu[guild] = true
+    end
 
     -- fetch current song
     if queued[guild][1] and queued[guild][1].dl == 0 then
@@ -27,24 +33,32 @@ local function update_queue(guild)
         }, function(code, signal)
             if code == 0 and signal == 0 then
                 uv.close(queued[guild][1].dl_handle)
-                queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.wav" },
-                    stdio = { nil, 1, 2 }
-                }, function(code, signal)
-                    if code == 0 and signal == 0 then
-                        uv.close(queued[guild][1].dl_handle)
-                        os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
-                        queued[guild][1].dl = 1
-                    end
-                    if code == 1 then
-                        if not queued[guild][1].dl_retry then
-                            queued[guild][1].dl = 0
-                            queued[guild][1].dl_retry = true
-                        else
+
+                -- check if we are normalizing
+                if normmu[guild] then
+                    queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.opus", "-o", "./wrun/"..guild.."/music_curr.wav" },
+                        stdio = { nil, 1, 2 }
+                    }, function(code, signal)
+                        if code == 0 and signal == 0 then
+                            uv.close(queued[guild][1].dl_handle)
+                            os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
                             queued[guild][1].dl = 1
                         end
-                    end
-                end), "is ffmpeg-normalize installed and on $PATH?")
+                        if code == 1 then
+                            if not queued[guild][1].dl_retry then
+                                queued[guild][1].dl = 0
+                                queued[guild][1].dl_retry = true
+                            else
+                                queued[guild][1].dl = 1
+                            end
+                        end
+                    end), "is ffmpeg-normalize installed and on $PATH?")
+                else
+                    uv.close(queued[guild][1].dl_handle)
+                    os.execute("rm ./wrun/"..guild.."/music_curr_pre.opus")
+                    queued[guild][1].dl = 1
+                end
             end
         end), "is yt-dlp installed and on $PATH?")
     end
@@ -57,23 +71,32 @@ local function update_queue(guild)
         }, function(code, signal)
             if code == 0 and signal == 0 then
                 uv.close(queued[guild][2].dl_handle)
-                queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                    args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.wav" },
-                    stdio = { nil, 1, 2 }
-                }, function(code, signal)
-                    if code == 0 and signal == 0 then
-                        os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
-                        queued[guild][2].dl = 1
-                    end
-                    if code == 1 then
-                        if not queued[guild][2].dl_retry then
-                            queued[guild][2].dl = 0
-                            queued[guild][2].dl_retry = true
-                        else
+
+                -- check if we are normalizing
+                if normmu[guild] then
+                    queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.opus", "-o", "./wrun/"..guild.."/music_next.wav" },
+                        stdio = { nil, 1, 2 }
+                    }, function(code, signal)
+                        if code == 0 and signal == 0 then
+                            uv.close(queued[guild][2].dl_handle)
+                            os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
                             queued[guild][2].dl = 1
                         end
-                    end
-                end), "is ffmpeg-normalize installed and on $PATH?")
+                        if code == 1 then
+                            if not queued[guild][2].dl_retry then
+                                queued[guild][2].dl = 0
+                                queued[guild][2].dl_retry = true
+                            else
+                                queued[guild][2].dl = 1
+                            end
+                        end
+                    end), "is ffmpeg-normalize installed and on $PATH?")
+                else
+                    uv.close(queued[guild][2].dl_handle)
+                    os.execute("rm ./wrun/"..guild.."/music_next_pre.opus")
+                    queued[guild][2].dl = 1
+                end
             end
         end), "is yt-dlp installed and on $PATH?")
     end
@@ -987,6 +1010,8 @@ return function(client) return {
                                 else
                                     -- waiting for song to download
                                     if status[message.guild.id] then
+                                        update_queue(message.guild.id)
+
                                         local f = io.open(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".wav", "rb")
                                         if f then
                                             f:seek("set", 44)
@@ -1302,6 +1327,38 @@ return function(client) return {
                         embed = {
                             title = "Music - Volume",
                             description = "Invalid Music Volume!"
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                end
+            end
+        },
+        ["mun"] = {
+            description = "Sets normalization mode",
+            owner_only = true,
+            exec = function(message)
+                local args = message.content:split(" ")
+
+                if args[2] and (args[2] == "true" or args[2] == "false") then
+                    if args[2] == "true" then
+                        normmu[message.guild.id] = true
+                    end
+                    if args[2] == "false" then
+                        normmu[message.guild.id] = false
+                    end
+
+                    message:reply({
+                        embed = {
+                            title = "Music - Normalization",
+                            description = "Set Normalization To: "..args[2],
+                        },
+                        reference = { message = message, mention = true }
+                    })
+                else
+                    message:reply({
+                        embed = {
+                            title = "Music - Normalization",
+                            description = "Invalid Normalization State!"
                         },
                         reference = { message = message, mention = true }
                     })
