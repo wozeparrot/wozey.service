@@ -1082,7 +1082,7 @@ return function(client) return {
         ["next"] = {
             description = "Skips to next queued song",
             exec = function(message)
-                if status[message.guild.id] and queued[message.guild.id] then
+                if status[message.guild.id] and queued[message.guild.id] and message.guild.connection then
                     -- only allow person who queued to skip their song
                     if queued[message.guild.id][1].user == message.author.tag or message.author == client.owner or not message.guild.connection.channel.connectedMembers:find(function (a) return queued[message.guild.id][1].user == a.user.tag end) then
                         nexted[message.guild.id] = true
