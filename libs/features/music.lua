@@ -6,6 +6,8 @@ local json = require("json")
 local time = require("discordia").Time
 local stopwatch = require("discordia").Stopwatch
 
+local log = require("discordia").Logger(3, "%F %T")
+
 local queued = {}
 local status = {}
 local played = {}
@@ -29,33 +31,47 @@ local function update_queue(guild)
     -- fetch current song
     if queued[guild][1] and queued[guild][1].dl == 0 then
         queued[guild][1].dl = 2
+        log:log(3, "[music] Downloading: %s", queued[guild][1].url)
         queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
             args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
-            stdio = { nil, 1, 2 }
         }, function(code, signal)
             if code == 0 and signal == 0 then
                 -- check if we are normalizing
                 if normmu[guild] then
+                    log:log(3, "[music] Normalizing: %s", queued[guild][1].url)
                     queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
                         args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.wav", "-o", "./wrun/"..guild.."/music_curr.wav" },
-                        stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
                             os.execute("rm ./wrun/"..guild.."/music_curr_pre.wav")
                             queued[guild][1].dl = 1
+                            log:log(3, "[music] Ready: %s", queued[guild][1].url)
                         end
                         if code == 1 then
                             if not queued[guild][1].dl_retry then
                                 queued[guild][1].dl = 0
                                 queued[guild][1].dl_retry = true
+                                log:log(3, "[music] Retrying: %s", queued[guild][1].url)
                             else
                                 queued[guild][1].dl = 1
+                                log:log(3, "[music] Ready: %s", queued[guild][1].url)
                             end
                         end
                     end), "is ffmpeg-normalize installed and on $PATH?")
                 else
                     os.execute("mv ./wrun/"..guild.."/music_curr_pre.wav ./wrun/"..guild.."/music_curr.wav")
                     queued[guild][1].dl = 1
+                    log:log(3, "[music] Ready: %s", queued[guild][1].url)
+                end
+            end
+            if code == 1 then
+                if not queued[guild][1].dl_retry then
+                    queued[guild][1].dl = 0
+                    queued[guild][1].dl_retry = true
+                    log:log(3, "[music] Retrying: %s", queued[guild][1].url)
+                else
+                    queued[guild][1].dl = 1
+                    log:log(3, "[music] Ready: %s", queued[guild][1].url)
                 end
             end
         end), "is yt-dlp installed and on $PATH?")
@@ -63,33 +79,47 @@ local function update_queue(guild)
     -- prefetch next song
     if queued[guild][2] and queued[guild][2].dl == 0 then
         queued[guild][2].dl = 2
+        log:log(3, "[music] Downloading: %s", queued[guild][2].url)
         queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
             args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
-            stdio = { nil, 1, 2 }
         }, function(code, signal)
             if code == 0 and signal == 0 then
                 -- check if we are normalizing
                 if normmu[guild] then
+                    log:log(3, "[music] Normalizing: %s", queued[guild][2].url)
                     queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
                         args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.wav", "-o", "./wrun/"..guild.."/music_next.wav" },
-                        stdio = { nil, 1, 2 }
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
                             os.execute("rm ./wrun/"..guild.."/music_next_pre.wav")
                             queued[guild][2].dl = 1
+                            log:log(3, "[music] Ready: %s", queued[guild][2].url)
                         end
                         if code == 1 then
                             if not queued[guild][2].dl_retry then
                                 queued[guild][2].dl = 0
                                 queued[guild][2].dl_retry = true
+                                log:log(3, "[music] Retrying: %s", queued[guild][2].url)
                             else
                                 queued[guild][2].dl = 1
+                                log:log(3, "[music] Failed: %s", queued[guild][2].url)
                             end
                         end
                     end), "is ffmpeg-normalize installed and on $PATH?")
                 else
                     os.execute("mv ./wrun/"..guild.."/music_next_pre.wav ./wrun/"..guild.."/music_next.wav")
                     queued[guild][2].dl = 1
+                    log:log(3, "[music] Ready: %s", queued[guild][2].url)
+                end
+            end
+            if code == 1 then
+                if not queued[guild][2].dl_retry then
+                    queued[guild][2].dl = 0
+                    queued[guild][2].dl_retry = true
+                    log:log(3, "[music] Retrying: %s", queued[guild][2].url)
+                else
+                    queued[guild][2].dl = 1
+                    log:log(3, "[music] Ready: %s", queued[guild][2].url)
                 end
             end
         end), "is yt-dlp installed and on $PATH?")
@@ -653,7 +683,7 @@ return function(client) return {
             end
         },
         ["qlists"] = {
-            description = "Queues a single random song from a playlist",
+            description = "Queues a selection of random songs from a playlist",
             exec = function(message)
                 local args = message.content:split(" ")
 
@@ -662,11 +692,12 @@ return function(client) return {
                     volume[message.guild.id] = "-23"
                 end
 
-                if args[2] then
+                if args[2] and tonumber(args[3]) then
                     local sw = stopwatch()
                     sw:start()
 
-                    local url = message.content:gsub(";qlists ", "", 1):gsub("<", ""):gsub(">", "")
+                    local url = args[2]
+                    local count = tonumber(args[3])
 
                     -- spawn youtube-dl process
                     local stop = false
@@ -793,7 +824,11 @@ return function(client) return {
                                 -- update queue
                                 update_queue(message.guild.id)
 
-                                break
+                                if count <= 1 then
+                                    break
+                                else
+                                    count = count - 1
+                                end
                             end
                         end
                     end
@@ -801,7 +836,7 @@ return function(client) return {
                     message:reply({
                         embed = {
                             title = "Music - Queue List",
-                            description = "Invalid URL!"
+                            description = "Invalid URL/Invalid Count!"
                         },
                         reference = { message = message, mention = true }
                     })
@@ -953,7 +988,7 @@ return function(client) return {
                 if message.member.voiceChannel then
                     if not status[message.guild.id] then
                         message:addReaction("✅")
-                        local connection = message.member.voiceChannel:join()
+                        message.member.voiceChannel:join()
                         coroutine.wrap(function ()
                             status[message.guild.id] = coroutine.running()
                             while status[message.guild.id] do
@@ -981,16 +1016,20 @@ return function(client) return {
 
                                     -- play song
                                     local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav", "rb")
+                                    local difference = nil
                                     if f then
                                         f:seek("set", 44)
-                                        played[message.guild.id]:reset()
                                         played[message.guild.id]:start()
-                                        connection:playPCM(f:read("*a"))
+                                        played[message.guild.id]:reset()
+                                        if message.guild.connection then
+                                            difference = time.fromMilliseconds(message.guild.connection:playPCM(f:read("*a"))):toSeconds() - queued[message.guild.id][1].raw_duration
+                                        else
+                                            break
+                                        end
                                     end
-                                    --connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.wav")
 
                                     -- switch to next song
-                                    if status[message.guild.id] then
+                                    if status[message.guild.id] and message.guild.connection and difference < 1 and difference > -1 then
                                         if not loopmu[message.guild.id] then
                                             if nexted[message.guild.id] then
                                                 next_song(message.guild.id, true)
@@ -1003,23 +1042,29 @@ return function(client) return {
                                     end
                                 else
                                     -- waiting for song to download
-                                    if status[message.guild.id] then
+                                    if status[message.guild.id] and message.guild.connection then
                                         local f = io.open(uv.os_getenv("WOZEY_ROOT").."/assets/music_waiting_"..waitmu[message.guild.id]..".wav", "rb")
                                         if f then
                                             f:seek("set", 44)
-                                            connection:playPCM(f:read("*a"))
+                                            if message.guild.connection then
+                                                message.guild.connection:playPCM(f:read("*a"))
+                                            else
+                                                break
+                                            end
                                         end
                                     else
                                         break
                                     end
 
-                                    if status[message.guild.id] and nexted[message.guild.id] then
+                                    if status[message.guild.id] and nexted[message.guild.id] and message.guild.connection then
                                         next_song(message.guild.id, true)
                                     end
                                 end
                                 nexted[message.guild.id] = false
                             end
-                            connection:close()
+                            if message.guild.connection then
+                                message.guild.connection:close()
+                            end
                             status[message.guild.id] = nil
                         end)()
                     else
@@ -1050,6 +1095,7 @@ return function(client) return {
                     if message.guild.connection then
                         message.guild.connection:stopStream()
                     end
+                    played[message.guild.id]:stop()
                     played[message.guild.id]:reset()
                     message:addReaction("✅")
                 else
@@ -1067,6 +1113,7 @@ return function(client) return {
             description = "Resume previously playing music",
             exec = function(message)
                 if status[message.guild.id] then
+                    played[message.guild.id]:start()
                     message.guild.connection:resumeStream()
                     message:addReaction("✅")
                 else
@@ -1084,6 +1131,7 @@ return function(client) return {
             description = "Pauses currently playing music",
             exec = function(message)
                 if status[message.guild.id] then
+                    played[message.guild.id]:stop()
                     message.guild.connection:pauseStream()
                     message:addReaction("✅")
                 else
