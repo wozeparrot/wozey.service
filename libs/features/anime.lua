@@ -24,7 +24,7 @@ return function(client) return {
 
             -- match for curly braces to search
             for match in message.content:gmatch("%b{}") do
-                if match ~= "{;}" and match ~= "{}" then
+                if match ~= "{;}" and match ~= "{}" and match ~= "{:}" then
                     -- post data for api request
                     local post_data = json.stringify({
                         ["query"] = query,
