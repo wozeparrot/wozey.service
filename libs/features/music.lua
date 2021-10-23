@@ -985,7 +985,7 @@ return function(client) return {
                                         f:seek("set", 44)
                                         played[message.guild.id]:reset()
                                         played[message.guild.id]:start()
-                                        connection:playPCM(f)
+                                        connection:playPCM(f:read("*a"))
                                     end
                                     --connection:playFFmpeg("./wrun/"..message.guild.id.."/music_curr.wav")
 
