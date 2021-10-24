@@ -1029,7 +1029,10 @@ return function(client) return {
                                     end
 
                                     -- switch to next song
-                                    if status[message.guild.id] and message.guild.connection and difference < 1 and difference > -1 then
+                                    if not nexted[message.guild.id] and not (difference < 1 and difference > -1) then
+                                        break
+                                    end
+                                    if status[message.guild.id] and message.guild.connection then
                                         if not loopmu[message.guild.id] then
                                             if nexted[message.guild.id] then
                                                 next_song(message.guild.id, true)
