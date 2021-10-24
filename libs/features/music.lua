@@ -1029,7 +1029,7 @@ return function(client) return {
                                     end
 
                                     -- switch to next song
-                                    if not nexted[message.guild.id] and not (difference < 1 and difference > -1) then
+                                    if not nexted[message.guild.id] and not (difference < 5 and difference > -5) then
                                         break
                                     end
                                     if status[message.guild.id] and message.guild.connection then
