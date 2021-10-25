@@ -209,8 +209,6 @@ return function(client) return {
         ["poll_end"] = {
             description = "End voting on a poll",
             exec = function(message)
-                message:delete()
-
                 local poll_msg = message.channel:getPinnedMessages():find(function(a)
                     return a.author == client.user and a.embed
                 end)
@@ -249,6 +247,7 @@ return function(client) return {
                                     description = "Winner: "..winner.value
                                 }
                             })
+                            poll_msg:delete()
                         end
                     else
                         message.channel:send({
@@ -257,9 +256,8 @@ return function(client) return {
                                 description = "Tie"
                             }
                         })
+                        poll_msg:delete()
                     end
-
-                    poll_msg:delete()
                 else
                     message:reply({
                         embed = {
@@ -269,6 +267,8 @@ return function(client) return {
                         reference = { message = poll_msg, mention = true }
                     })
                 end
+
+                message:delete()
             end
         }
     },
