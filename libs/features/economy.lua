@@ -34,7 +34,7 @@ local function get_bet(message)
     local args = message.content:split(" ")
 
     local bet = tonumber(args[2])
-    if bet then
+    if bet and bet > 0 then
         if bet <= get_money(get_role(message.member)) then
             return bet
         else
