@@ -405,7 +405,7 @@ return function(client) return {
                     local skipped = {}
                     for i, song in ipairs(songs) do
                         if i == #songs then break end
-                        if #succeeded > 12 and message.author ~= client.owner then break
+                        if #succeeded > 12 and message.author ~= client.owner then break end
 
                         -- parse song data
                         local title = song:split("|||||")[1]
@@ -576,7 +576,7 @@ return function(client) return {
                     local skipped = {}
                     for i, song in ipairs(songs) do
                         if i == #songs then break end
-                        if #succeeded > 12 and message.author ~= client.owner then break
+                        if #succeeded > 12 and message.author ~= client.owner then break end
 
                         -- parse song data
                         local title = song:split("|||||")[1]
