@@ -405,7 +405,7 @@ return function(client) return {
                     local skipped = {}
                     for i, song in ipairs(songs) do
                         if i == #songs then break end
-                        if #succeeded > 12 and message.author ~= client.owner then break end
+                        if #succeeded >= 9 and message.author ~= client.owner then break end
 
                         -- parse song data
                         local title = song:split("|||||")[1]
@@ -576,7 +576,7 @@ return function(client) return {
                     local skipped = {}
                     for i, song in ipairs(songs) do
                         if i == #songs then break end
-                        if #succeeded > 12 and message.author ~= client.owner then break end
+                        if #succeeded >= 9 and message.author ~= client.owner then break end
 
                         -- parse song data
                         local title = song:split("|||||")[1]
@@ -694,7 +694,7 @@ return function(client) return {
                     volume[message.guild.id] = "-23"
                 end
 
-                if args[2] and tonumber(args[3]) and (tonumber(args[3]) < 12 or message.author == client.owner) then
+                if args[2] and tonumber(args[3]) and (tonumber(args[3]) <= 9 or message.author == client.owner) then
                     local sw = stopwatch()
                     sw:start()
 
