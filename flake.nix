@@ -13,8 +13,8 @@
             src = prev.fetchgit {
               url = "https://github.com/luvit/luvi.git";
               rev = version;
-              leaveDotGit = true;
-              sha256 = "sha256-gZ8E523qOhgTCpFtOQt71f5D0Z7/usCAsZ3Jt9cV5oo=";
+              leaveDotGit = false;
+              sha256 = "sha256-h9Xdm/+9X3AoqBj1LJftqn3+3PbdankfAJSBP3KnRgw=";
             };
 
             nativeBuildInputs = with prev; [
@@ -40,8 +40,8 @@
               luvitSrc = prev.fetchgit {
                 url = "https://github.com/luvit/luvit.git";
                 rev = "2.17.0";
-                leaveDotGit = true;
-                sha256 = "sha256-1p67H/Na8G1OYVjRHokl/VeWJeyn5ssfoZZFo5kQFZQ=";
+                leaveDotGit = false;
+                sha256 = "sha256-dOnKoSfm0xpTqA4FeR6PQQlgbh6FKGsd+DxdiPYibGQ=";
               };
             in
             final.writeShellScriptBin "luvit" ''
