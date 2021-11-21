@@ -996,7 +996,7 @@ return function(client) return {
                             while status[message.guild.id] do
                                 if queued[message.guild.id] and queued[message.guild.id][1] and queued[message.guild.id][1].dl == 1 then
                                     -- send now playing message
-                                    message:reply({
+                                    message.channel:send({
                                         embed = {
                                             title = "Music - Now Playing",
                                             description = queued[message.guild.id][1].title,
@@ -1435,9 +1435,9 @@ return function(client) return {
                 end
             end
         },
-        ["muc"] = {
+        ["clear"] = {
             description = "Clears the queue",
-            owner_only = true,
+            required_perms = { 0x00002000 },
             exec = function(message)
                 status[message.guild.id] = nil
                 if message.guild.connection then
