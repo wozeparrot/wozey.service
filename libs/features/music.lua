@@ -1006,13 +1006,13 @@ return function(client) return {
                                         played[message.guild.id]:reset()
                                         if message.guild.connection then
                                             difference = time.fromMilliseconds(message.guild.connection:playPCM(f:read("*a"))):toSeconds() - queued[message.guild.id][1].raw_duration
+                                            log:log(3, "[music] Difference: %d", difference)
                                         else
                                             break
                                         end
                                     end
 
                                     -- switch to next song
-                                    log:log(3, "[music] Difference: %d", difference)
                                     if not nexted[message.guild.id] and difference and not (difference < 5 and difference > -5) then
                                         break
                                     end
