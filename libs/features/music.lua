@@ -986,7 +986,7 @@ return function(client) return {
             exec = function(message)
                 -- set default loading music if not set yet
                 if waitmu[message.guild.id] == nil then
-                    waitmu[message.guild.id] = 1
+                    waitmu[message.guild.id] = 3
                 end
 
                 -- set default loop state if not set yet
@@ -1032,6 +1032,7 @@ return function(client) return {
                                         },
                                         reference = { message = queued[message.guild.id][1].message, mention = false },
                                     })
+                                    log:log(3, "[music] Playing: %s | Url: %s", queued[message.guild.id][1].title, queued[message.guild.id][1].url)
 
                                     -- play song
                                     local f = io.open("./wrun/"..message.guild.id.."/music_curr.wav", "rb")
@@ -1048,6 +1049,7 @@ return function(client) return {
                                     end
 
                                     -- switch to next song
+                                    log:log(3, "[music] Difference: %d", difference)
                                     if not nexted[message.guild.id] and difference and not (difference < 5 and difference > -5) then
                                         break
                                     end
