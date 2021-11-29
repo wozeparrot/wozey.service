@@ -34,6 +34,7 @@ local function update_queue(guild)
         log:log(3, "[music] Downloading: %s", queued[guild][1].url)
         queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
             args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
+            stdio = { 0, 1, 2 },
         }, function(code, signal)
             if code == 0 and signal == 0 then
                 -- check if we are normalizing
@@ -41,6 +42,7 @@ local function update_queue(guild)
                     log:log(3, "[music] Normalizing: %s", queued[guild][1].url)
                     queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
                         args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.wav", "-o", "./wrun/"..guild.."/music_curr.wav" },
+                        stdio = { 0, 1, 2 },
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
                             os.execute("rm ./wrun/"..guild.."/music_curr_pre.wav")
@@ -82,6 +84,7 @@ local function update_queue(guild)
         log:log(3, "[music] Downloading: %s", queued[guild][2].url)
         queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
             args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
+            stdio = { 0, 1, 2 },
         }, function(code, signal)
             if code == 0 and signal == 0 then
                 -- check if we are normalizing
@@ -89,6 +92,7 @@ local function update_queue(guild)
                     log:log(3, "[music] Normalizing: %s", queued[guild][2].url)
                     queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
                         args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.wav", "-o", "./wrun/"..guild.."/music_next.wav" },
+                        stdio = { 0, 1, 2 },
                     }, function(code, signal)
                         if code == 0 and signal == 0 then
                             os.execute("rm ./wrun/"..guild.."/music_next_pre.wav")
