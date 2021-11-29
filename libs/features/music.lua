@@ -28,7 +28,7 @@ local function update_queue(guild)
 
     if not queued[guild] then return end
 
-    local retrying = false
+    local retrying = true
     while retrying do
         retrying = false
 
