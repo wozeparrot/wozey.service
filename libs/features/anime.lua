@@ -14,7 +14,7 @@ local query = [[
 
 return function(client) return {
     name = "Anime Linker",
-    description = "Links to mentioned (wrap name with {}) anime in chats",
+    description = "Links to mentioned (wrap title with ${}) anime in chats",
     commands = {},
     callbacks = {
         ["messageCreate"] = function(message)
@@ -23,12 +23,12 @@ return function(client) return {
             if message.member == nil then return end
 
             -- match for curly braces to search
-            for match in message.content:gmatch("%b{}") do
-                if match ~= "{;}" and match ~= "{}" and match ~= "{:}" then
+            for match in message.content:gmatch("$%b{}") do
+                if match ~= "${}" then
                     -- post data for api request
                     local post_data = json.stringify({
                         ["query"] = query,
-                        ["variables"] = { search = match:gsub("{", ""):gsub("}", "") }
+                        ["variables"] = { search = match:gsub("{", ""):gsub("}", ""):gsub("$", "") }
                     })
                     -- stored response string
                     local response = ""
