@@ -33,7 +33,7 @@ local function update_queue(guild)
         queued[guild][1].dl = 2
         log:log(3, "[music] Downloading: %s", queued[guild][1].url)
         queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
-            args = { "-v", "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
+            args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
             stdio = { 0, 1, 2 },
         }, function(code, signal)
             if code == 0 and signal == 0 then
@@ -71,7 +71,7 @@ local function update_queue(guild)
         queued[guild][2].dl = 2
         log:log(3, "[music] Downloading: %s", queued[guild][2].url)
         queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
-            args = { "-v", "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
+            args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
             stdio = { 0, 1, 2 },
         }, function(code, signal)
             if code == 0 and signal == 0 then
