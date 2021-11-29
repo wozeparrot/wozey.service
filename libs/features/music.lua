@@ -28,118 +28,81 @@ local function update_queue(guild)
 
     if not queued[guild] then return end
 
-    local retrying = true
-    while retrying do
-        retrying = false
-
-        -- fetch current song
-        if queued[guild][1] and queued[guild][1].dl == 0 then
-            queued[guild][1].dl = 2
-            log:log(3, "[music] Downloading: %s", queued[guild][1].url)
-            queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
-                args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
-                stdio = { 0, 1, 2 },
-            }, function(code, signal)
-                if code == 0 and signal == 0 then
-                    -- check if we are normalizing
-                    if normmu[guild] then
-                        log:log(3, "[music] Normalizing: %s", queued[guild][1].url)
-                        queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                            args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.wav", "-o", "./wrun/"..guild.."/music_curr.wav" },
-                            stdio = { 0, 1, 2 },
-                        }, function(code, signal)
-                            if code == 0 and signal == 0 then
-                                os.execute("rm ./wrun/"..guild.."/music_curr_pre.wav")
-                                queued[guild][1].dl = 1
-                                log:log(3, "[music] Ready: %s", queued[guild][1].url)
-                            end
-                            if code == 1 then
-                                if not queued[guild][1].dl_retry then
-                                    queued[guild][1].dl = 0
-                                    queued[guild][1].dl_retry = true
-                                    log:log(3, "[music] Retrying: %s", queued[guild][1].url)
-
-                                    retrying = true
-                                else
-                                    queued[guild][1].dl = 1
-                                    log:log(3, "[music] Ready: %s", queued[guild][1].url)
-                                end
-                            end
-                        end), "is ffmpeg-normalize installed and on $PATH?")
-                    else
-                        os.execute("mv ./wrun/"..guild.."/music_curr_pre.wav ./wrun/"..guild.."/music_curr.wav")
-                        queued[guild][1].dl = 1
-                        log:log(3, "[music] Ready: %s", queued[guild][1].url)
-                    end
+    -- fetch current song
+    if queued[guild][1] and queued[guild][1].dl == 0 then
+        queued[guild][1].dl = 2
+        log:log(3, "[music] Downloading: %s", queued[guild][1].url)
+        queued[guild][1].dl_handle = assert(uv.spawn("yt-dlp", {
+            args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_curr_pre.%(ext)s", queued[guild][1].url },
+            stdio = { 0, 1, 2 },
+        }, function(code, signal)
+            if code == 0 and signal == 0 then
+                -- check if we are normalizing
+                if normmu[guild] then
+                    log:log(3, "[music] Normalizing: %s", queued[guild][1].url)
+                    queued[guild][1].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_curr_pre.wav", "-o", "./wrun/"..guild.."/music_curr.wav" },
+                        stdio = { 0, 1, 2 },
+                    }, function(code, signal)
+                        if code == 0 and signal == 0 then
+                            os.execute("rm ./wrun/"..guild.."/music_curr_pre.wav")
+                            queued[guild][1].dl = 1
+                            log:log(3, "[music] Ready: %s", queued[guild][1].url)
+                        end
+                        if code == 1 then
+                            queued[guild][1].dl = 1
+                            log:log(3, "[music] Failed: %s", queued[guild][1].url)
+                        end
+                    end), "is ffmpeg-normalize installed and on $PATH?")
+                else
+                    os.execute("mv ./wrun/"..guild.."/music_curr_pre.wav ./wrun/"..guild.."/music_curr.wav")
+                    queued[guild][1].dl = 1
+                    log:log(3, "[music] Ready: %s", queued[guild][1].url)
                 end
-                if code == 1 then
-                    if not queued[guild][1].dl_retry then
-                        queued[guild][1].dl = 0
-                        queued[guild][1].dl_retry = true
-                        log:log(3, "[music] Retrying: %s", queued[guild][1].url)
-
-                        retrying = true
-                    else
-                        queued[guild][1].dl = 1
-                        log:log(3, "[music] Ready: %s", queued[guild][1].url)
-                    end
+            end
+            if code == 1 then
+                queued[guild][1].dl = 1
+                log:log(3, "[music] Failed: %s", queued[guild][1].url)
+            end
+        end), "is yt-dlp installed and on $PATH?")
+    end
+    -- prefetch next song
+    if queued[guild][2] and queued[guild][2].dl == 0 then
+        queued[guild][2].dl = 2
+        log:log(3, "[music] Downloading: %s", queued[guild][2].url)
+        queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
+            args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
+            stdio = { 0, 1, 2 },
+        }, function(code, signal)
+            if code == 0 and signal == 0 then
+                -- check if we are normalizing
+                if normmu[guild] then
+                    log:log(3, "[music] Normalizing: %s", queued[guild][2].url)
+                    queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
+                        args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.wav", "-o", "./wrun/"..guild.."/music_next.wav" },
+                        stdio = { 0, 1, 2 },
+                    }, function(code, signal)
+                        if code == 0 and signal == 0 then
+                            os.execute("rm ./wrun/"..guild.."/music_next_pre.wav")
+                            queued[guild][2].dl = 1
+                            log:log(3, "[music] Ready: %s", queued[guild][2].url)
+                        end
+                        if code == 1 then
+                            queued[guild][2].dl = 1
+                            log:log(3, "[music] Failed: %s", queued[guild][2].url)
+                        end
+                    end), "is ffmpeg-normalize installed and on $PATH?")
+                else
+                    os.execute("mv ./wrun/"..guild.."/music_next_pre.wav ./wrun/"..guild.."/music_next.wav")
+                    queued[guild][2].dl = 1
+                    log:log(3, "[music] Ready: %s", queued[guild][2].url)
                 end
-            end), "is yt-dlp installed and on $PATH?")
-        end
-        -- prefetch next song
-        if queued[guild][2] and queued[guild][2].dl == 0 then
-            queued[guild][2].dl = 2
-            log:log(3, "[music] Downloading: %s", queued[guild][2].url)
-            queued[guild][2].dl_handle = assert(uv.spawn("yt-dlp", {
-                args = { "-x", "--audio-format", "wav", "--audio-quality", "0", "--no-playlist", "--force-overwrites", "-o", "./wrun/"..guild.."/music_next_pre.%(ext)s", queued[guild][2].url },
-                stdio = { 0, 1, 2 },
-            }, function(code, signal)
-                if code == 0 and signal == 0 then
-                    -- check if we are normalizing
-                    if normmu[guild] then
-                        log:log(3, "[music] Normalizing: %s", queued[guild][2].url)
-                        queued[guild][2].dl_handle = assert(uv.spawn("ffmpeg-normalize", {
-                            args = { "-ar", "48000", "-f", "-t", volume[guild], "./wrun/"..guild.."/music_next_pre.wav", "-o", "./wrun/"..guild.."/music_next.wav" },
-                            stdio = { 0, 1, 2 },
-                        }, function(code, signal)
-                            if code == 0 and signal == 0 then
-                                os.execute("rm ./wrun/"..guild.."/music_next_pre.wav")
-                                queued[guild][2].dl = 1
-                                log:log(3, "[music] Ready: %s", queued[guild][2].url)
-                            end
-                            if code == 1 then
-                                if not queued[guild][2].dl_retry then
-                                    queued[guild][2].dl = 0
-                                    queued[guild][2].dl_retry = true
-                                    log:log(3, "[music] Retrying: %s", queued[guild][2].url)
-
-                                    retrying = true
-                                else
-                                    queued[guild][2].dl = 1
-                                    log:log(3, "[music] Failed: %s", queued[guild][2].url)
-                                end
-                            end
-                        end), "is ffmpeg-normalize installed and on $PATH?")
-                    else
-                        os.execute("mv ./wrun/"..guild.."/music_next_pre.wav ./wrun/"..guild.."/music_next.wav")
-                        queued[guild][2].dl = 1
-                        log:log(3, "[music] Ready: %s", queued[guild][2].url)
-                    end
-                end
-                if code == 1 then
-                    if not queued[guild][2].dl_retry then
-                        queued[guild][2].dl = 0
-                        queued[guild][2].dl_retry = true
-                        log:log(3, "[music] Retrying: %s", queued[guild][2].url)
-
-                        retrying = true
-                    else
-                        queued[guild][2].dl = 1
-                        log:log(3, "[music] Ready: %s", queued[guild][2].url)
-                    end
-                end
-            end), "is yt-dlp installed and on $PATH?")
-        end
+            end
+            if code == 1 then
+                queued[guild][2].dl = 1
+                log:log(3, "[music] Failed: %s", queued[guild][2].url)
+            end
+        end), "is yt-dlp installed and on $PATH?")
     end
 end
 
