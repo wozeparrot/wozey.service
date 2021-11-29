@@ -28,6 +28,8 @@ local function update_queue(guild)
 
     if not queued[guild] then return end
 
+    local retrying = false
+
     -- fetch current song
     if queued[guild][1] and queued[guild][1].dl == 0 then
         queued[guild][1].dl = 2
@@ -54,6 +56,8 @@ local function update_queue(guild)
                                 queued[guild][1].dl = 0
                                 queued[guild][1].dl_retry = true
                                 log:log(3, "[music] Retrying: %s", queued[guild][1].url)
+
+                                retrying = true
                             else
                                 queued[guild][1].dl = 1
                                 log:log(3, "[music] Ready: %s", queued[guild][1].url)
@@ -71,6 +75,8 @@ local function update_queue(guild)
                     queued[guild][1].dl = 0
                     queued[guild][1].dl_retry = true
                     log:log(3, "[music] Retrying: %s", queued[guild][1].url)
+
+                    retrying = true
                 else
                     queued[guild][1].dl = 1
                     log:log(3, "[music] Ready: %s", queued[guild][1].url)
@@ -104,6 +110,8 @@ local function update_queue(guild)
                                 queued[guild][2].dl = 0
                                 queued[guild][2].dl_retry = true
                                 log:log(3, "[music] Retrying: %s", queued[guild][2].url)
+
+                                retrying = true
                             else
                                 queued[guild][2].dl = 1
                                 log:log(3, "[music] Failed: %s", queued[guild][2].url)
@@ -121,12 +129,18 @@ local function update_queue(guild)
                     queued[guild][2].dl = 0
                     queued[guild][2].dl_retry = true
                     log:log(3, "[music] Retrying: %s", queued[guild][2].url)
+
+                    retrying = true
                 else
                     queued[guild][2].dl = 1
                     log:log(3, "[music] Ready: %s", queued[guild][2].url)
                 end
             end
         end), "is yt-dlp installed and on $PATH?")
+    end
+
+    if retrying then
+        update_queue(guild)
     end
 end
 
