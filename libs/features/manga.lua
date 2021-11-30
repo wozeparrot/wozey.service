@@ -23,7 +23,7 @@ return function(client) return {
             if message.member == nil then return end
 
             -- match for curly braces to search
-            for match in message.content:gmatch("$%b{}") do
+            for match in message.content:gmatch("$%b[]") do
                 if match ~= "${}" then
                     -- post data for api request
                     local post_data = json.stringify({
