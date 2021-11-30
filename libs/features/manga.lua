@@ -24,11 +24,11 @@ return function(client) return {
 
             -- match for curly braces to search
             for match in message.content:gmatch("$%b[]") do
-                if match ~= "${}" then
+                if match ~= "$[]" then
                     -- post data for api request
                     local post_data = json.stringify({
                         ["query"] = query,
-                        ["variables"] = { search = match:gsub("{", ""):gsub("}", ""):gsub("$", "") }
+                        ["variables"] = { search = match:gsub("[", ""):gsub("]", ""):gsub("$", "") }
                     })
                     -- stored response string
                     local response = ""
