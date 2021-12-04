@@ -87,7 +87,7 @@ return function(client) return {
             end
         },
         ["animet"] = {
-            description = "Attempts to find the source of a anime screenshot",
+            description = "Attempts to find the source of an anime screenshot",
             exec = function(message)
                 -- don't do anything if its ourself
                 if message.author == client.user then return end
