@@ -11,6 +11,7 @@ local prefix = ";"
 local features = {
     require("features/pinged")(client),
     require("features/linker")(client),
+    require("features/weeb")(client),
     require("features/economy")(client),
     require("features/dynamic_voice_channels")(client),
     require("features/poll")(client),
