@@ -27,7 +27,6 @@ return function(client) return {
         Links to mentioned things in chats:
             - ${} for anime
             - $[] for manga
-            - $() for games
     ]],
     commands = {},
     callbacks = {
