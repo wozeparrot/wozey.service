@@ -131,6 +131,12 @@ return function(client) return {
                         end
 
                         local match = json_response.result[1]
+                        -- check if match similarity is above 0.7
+                        if match.similarity <= 0.7 then
+                            message:addReaction("❌")
+                            return
+                        end
+                        
                         local episode = 1
                         if match.episode ~= nil then
                             episode = match.episode
