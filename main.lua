@@ -15,7 +15,8 @@ local features = {
     require("features/economy")(client),
     require("features/dynamic_voice_channels")(client),
     require("features/poll")(client),
-    require("features/music")(client)
+    require("features/music")(client),
+    require("features/ai")(client)
 }
 
 for i, feature in ipairs(features) do
