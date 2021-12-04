@@ -22,7 +22,7 @@ local manga_query = [[
 ]]
 
 return function(client) return {
-    name = "Anime Linker",
+    name = "Linker",
     description = [[
         Links to mentioned things in chats:
             - ${} for anime
