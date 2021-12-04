@@ -25,9 +25,9 @@ return function(client) return {
     name = "Anime Linker",
     description = [[
         Links to mentioned things in chats:
-        - wrap in ${} for anime
-        - wrap in $[] for manga
-        - wrap in $() for games
+            - ${} for anime
+            - $[] for manga
+            - $() for games
     ]],
     commands = {},
     callbacks = {
