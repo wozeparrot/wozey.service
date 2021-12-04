@@ -8,16 +8,14 @@ return function(client) return {
         ["animeq"] = {
             description = "Sends a random anime quote",
             exec = function(message)
+                -- don't do anything if its ourself
+                if message.author == client.user then return end
+                if message.member == nil then return end
+
                 -- stored response string
                 local response = ""
                 -- generate request
-                local req = https.request({
-                    hostname = "animechan.vercel.app/api/random",
-                    method = "GET",
-                    headers = {
-                        ["Accept"] = "application/json"
-                    },
-                }, function(res)
+                local req = https.request("https://animechan.vercel.app/api/random", function(res)
                     -- append to response string
                     res:on("data", function(chunk)
                         response = response..chunk
