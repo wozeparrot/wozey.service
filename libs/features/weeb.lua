@@ -1,4 +1,4 @@
-local http = require("https")
+local https = require("https")
 local json = require("json")
 local url = require("url")
 local time = require("discordia").Time
@@ -17,7 +17,7 @@ return function(client) return {
                 -- stored response string
                 local response = ""
                 -- generate request
-                local req = http.get({
+                local req = https.get({
                     hostname = "animechan.vercel.app",
                     path = "/api/random",
                     method = "GET",
@@ -54,7 +54,7 @@ return function(client) return {
                 -- stored response string
                 local response = ""
                 -- generate request
-                local req = http.get({
+                local req = https.get({
                     hostname = "api.waifu.pics",
                     path = "/sfw/waifu",
                     method = "GET",
@@ -107,7 +107,7 @@ return function(client) return {
                 -- stored response string
                 local response = ""
                 -- generate request
-                local req = http.get({
+                local req = https.get({
                     hostname = "api.trace.moe",
                     path = "/search?anilistInfo&cutBorders&url="..args[2],
                     method = "GET",
