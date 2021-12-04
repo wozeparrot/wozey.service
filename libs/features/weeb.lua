@@ -1,4 +1,4 @@
-local https = require("https")
+local http = require("https")
 local json = require("json")
 
 return function(client) return {
@@ -15,7 +15,14 @@ return function(client) return {
                 -- stored response string
                 local response = ""
                 -- generate request
-                local req = https.request("https://animechan.vercel.app/api/random", function(res)
+                local req = http.get({
+                    hostname = "animechan.vercel.app",
+                    path = "/api/random",
+                    method = "GET",
+                    headers = {
+                        ["Accept"] = "application/json"
+                    },
+                }, function(res)
                     -- append to response string
                     res:on("data", function(chunk)
                         response = response..chunk
@@ -26,10 +33,7 @@ return function(client) return {
                         local quote = json.parse(response)
 
                         message:reply({
-                            embed = {
-                                title = quote.character.." - "..quote.anime,
-                                description = quote.quote
-                            },
+                            content = "\""..quote.quote.."\" - "..quote.character.." ("..quote.anime..")",
                             reference = { message = message, mention = false },
                         })
                     end))

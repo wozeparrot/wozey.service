@@ -39,9 +39,9 @@
             let
               luvitSrc = prev.fetchgit {
                 url = "https://github.com/luvit/luvit.git";
-                rev = "2.17.0";
+                rev = "2.18.1";
                 leaveDotGit = false;
-                sha256 = "sha256-dOnKoSfm0xpTqA4FeR6PQQlgbh6FKGsd+DxdiPYibGQ=";
+                sha256 = "sha256-nxvzfiHURbNMkEqjtpO5Ja+miwX/2JfUc7b29mIY1xs=";
               };
             in
             final.writeShellScriptBin "luvit" ''
