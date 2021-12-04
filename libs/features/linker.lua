@@ -41,7 +41,7 @@ return function(client) return {
                 if match ~= "${}" then
                     -- post data for api request
                     local post_data = json.stringify({
-                        ["query"] = query,
+                        ["query"] = anime_query,
                         ["variables"] = { search = match:gsub("{", ""):gsub("}", ""):gsub("$", "") }
                     })
                     -- stored response string
@@ -100,7 +100,7 @@ return function(client) return {
                 if match ~= "$[]" then
                     -- post data for api request
                     local post_data = json.stringify({
-                        ["query"] = query,
+                        ["query"] = manga_query,
                         ["variables"] = { search = match:gsub("%[", ""):gsub("%]", ""):gsub("$", "") }
                     })
                     -- stored response string
