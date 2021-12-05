@@ -50,7 +50,7 @@
 
           wozey =
             let
-              wozeySrc = ./.;
+              wozeySrc = ./bot;
             in
             final.writeShellScriptBin "wozey" ''
               export PATH="${prev.yt-dlp}/bin:${prev.ffmpeg}/bin:${prev.ffmpeg-normalize}/bin:${prev.busybox}/bin"
