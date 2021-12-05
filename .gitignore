@@ -4,6 +4,5 @@ tmp
 tmp/
 gateway.json
 discordia.log
-deps/
 result
 wrun/
