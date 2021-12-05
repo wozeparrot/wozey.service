@@ -7,3 +7,4 @@ discordia.log
 result
 wrun/
 target/
+Cargo.lock
