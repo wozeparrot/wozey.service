@@ -1,7 +1,0 @@
-[package]
-name = "wozey-compute"
-version = "0.1.0"
-authors = ["Woze Parrot <wozeparrot@gmail.com>"]
-edition = "2018"
-
-[dependencies]

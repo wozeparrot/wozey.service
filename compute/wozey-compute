@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+import json
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+from bottle import Bottle, request, response
+
+# select model
+MNAME = "Lovery/Aqua"
+#MNAME = "microsoft/DialoGPT-medium"
+#MNAME = "Kryptone/monikAI"
+
+# initialize model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(MNAME)
+model = AutoModelForCausalLM.from_pretrained(MNAME)
+
+# initialize bottle web framework
+app = Bottle()
+
+# chat history storage for specific chat ids (usually user id)
+chat_history_ids = {}
+
+# chat route
+@app.route("/chat", method="POST")
+def do_chat():
+    print(f"{request.json['id']}: {request.json['text']}")
+    # encode user input
+    user_input_ids = tokenizer.encode(request.json["text"] + tokenizer.eos_token, return_tensors="pt")
+
+    # sanity fixes
+    if request.json['id'] not in chat_history_ids:
+        chat_history_ids[request.json["id"]] = None
+
+    # generate output with history clamped to 1000 tokens
+    model_input_ids = torch.cat([chat_history_ids[request.json["id"]], user_input_ids], dim=-1) if chat_history_ids[request.json["id"]] is not None else user_input_ids
+    chat_history_ids[request.json["id"]] = model.generate(model_input_ids, max_length=1000, pad_token_id=tokenizer.eos_token_id)
+
+    # decode reply
+    reply = tokenizer.decode(chat_history_ids[request.json["id"]][:, model_input_ids.shape[-1]:][0], skip_special_tokens=True).strip()
+    print(f"wozey: {reply}")
+
+    # send back
+    return json.dumps({ "reply": reply })
+
+
+# reset chat history route
+@app.route("/reset", method="POST")
+def do_reset():
+    print(f"Reset history for: {request.json['id']}")
+
+    chat_history_ids[request.json["id"]] = None
+
+
+# CORS Header
+@app.route('/<:re:.*>', method='OPTIONS')
+def cors():
+    pass
+
+
+headers = ['Origin', 'Accept', 'Content-Type',
+           'X-Requested-With', 'X-CSRF-Token',
+           'Authorization']
+HEADERS = ', '.join((headers + [h.lower() for h in headers]))
+
+
+def apply_cors():
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'POST'
+    response.headers['Access-Control-Allow-Headers'] = HEADERS
+
+
+app.add_hook('after_request', apply_cors)
+app.run(host="::", port=6769)
