@@ -59,8 +59,15 @@ return function(client) return {
                         -- parse returned json
                         local json_response = json.parse(response)
                         if json_response == nil then
-                            message:addReaction("❌")
+                            message:addReaction("🛑")
                             return
+                        end
+                        
+                        if json_response.error then
+                            if json_response.error == "fr" then
+                                message:addReaction("⚪")
+                                return
+                            end
                         end
 
                         if json_response.reply == nil or json_response.reply == "" then
