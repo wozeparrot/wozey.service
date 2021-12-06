@@ -7,8 +7,11 @@ from bottle import Bottle, request, response
 
 # select model
 # -- DialoGPT models --
-MNAME = "Lovery/Aqua"
-# MNAME = "microsoft/DialoGPT-medium"
+# MNAME = "Lovery/Aqua"
+# MNAME = "microsoft/DialoGPT-small"
+MNAME = "microsoft/DialoGPT-medium"
+# MNAME = "microsoft/DialoGPT-large"
+# MNAME = "deepparag/DumBot"
 # MNAME = "abhiramtirumala/DialoGPT-sarcastic"
 # MNAME = "Kryptone/monikAI"
 # MNAME = "Kryptone/monikAI-Unstable"
@@ -58,13 +61,15 @@ def do_chat():
         model_input_ids = torch.cat([chat_history[request.json["id"]], user_input_ids], dim=-1) if chat_history[request.json["id"]] is not None else user_input_ids
         chat_history[request.json["id"]] = model.generate(
             model_input_ids,
-            max_length=500,
+            max_length=128,
             pad_token_id=tokenizer.eos_token_id,
-            no_repeat_ngram_size=4,
-            do_sample=True,
+            num_beams=3,
+            no_repeat_ngram_size=3,
+            do_sample=False,
             top_k=80,
-            top_p=0.7,
-            temperatue=0.8
+            top_p=0.9,
+            temperatue=0.8,
+            repetition_penaly=1.2,
         )
 
         # decode reply
