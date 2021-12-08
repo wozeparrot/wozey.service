@@ -1,108 +1,138 @@
 #!/usr/bin/env python
 import json
+import gc
+from abc import ABC, abstractmethod
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, BlenderbotTokenizer, BlenderbotForConditionalGeneration
 import torch
 from bottle import Bottle, request, response
 
-# select model
-# -- DialoGPT models --
-# MNAME = "Lovery/Aqua"
-# MNAME = "microsoft/DialoGPT-small"
-# MNAME = "microsoft/DialoGPT-medium"
-MNAME = "microsoft/DialoGPT-large"
-# MNAME = "deepparag/DumBot"
-# MNAME = "abhiramtirumala/DialoGPT-sarcastic"
-# MNAME = "Kryptone/monikAI"
-# MNAME = "Kryptone/monikAI-Unstable"
-# MNAME = "luca-martial/DialoGPT-Elon"
-# MNAME = "S34NtheGuy/DialoGPT-medium-Glass_Of_Water"
-# MNAME = "transfaeries/DialoGPT-medium-Discord-1.0"
-# -- blenderbot models --
-# MNAME = "facebook/blenderbot-400M-distill"
-# MNAME = "facebook/blenderbot-1B-distill"
-# MNAME = "chujiezheng/blenderbot-400M-ESC"
+# --- Agent ---
+class Agent(ABC):
+    def __init__(self, seperator, maxlen, model, tokenizer):
+        self.seperator = seperator
+        self.maxlen = maxlen
+        self.model = model
+        self.tokenizer = tokenizer
 
-# select model type
-MODEL_TYPE = "DialoGPT"
-# MODEL_TYPE = "blenderbot"
+    @abstractmethod
+    def generate(self, text, **kwargs):
+        raise NotImplemented
 
-# initialize model and tokenizer
-if MODEL_TYPE == "DialoGPT":
-    tokenizer = AutoTokenizer.from_pretrained(MNAME)
-    model = AutoModelForCausalLM.from_pretrained(MNAME)
-elif MODEL_TYPE == "blenderbot":
-    model = BlenderbotForConditionalGeneration.from_pretrained(MNAME)
-    tokenizer = BlenderbotTokenizer.from_pretrained(MNAME)
-else:
-    raise Exception
 
+class DialoGPTAgent(Agent):
+    def __init__(self, name, maxlen=64):
+        super().__init__(
+            seperator="<|endoftext|>",
+            maxlen=maxlen,
+            model = AutoModelForCausalLM.from_pretrained(name),
+            tokenizer=AutoTokenizer.from_pretrained(name),
+        )
+    
+    def generate(self, text):
+        input_ids = self.tokenizer(
+            text=text,
+            return_tensors="pt",
+        )["input_ids"]
+
+        output_ids = self.model.generate(
+            input_ids=input_ids,
+            pad_token_id=self.tokenizer.eos_token_id,
+            max_length=self.maxlen * 2,
+            num_beams=5,
+            top_k=None,
+            top_p=None,
+            no_repeat_ngram_size=4,
+            length_penalty=0.65,
+            repetition_penalty=2.0,
+            use_cache=True,
+        )
+
+        return self.tokenizer.decode(output_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True).strip()
+
+
+# --- CHAT HISTORY ---
+class ChatHistory:
+    def __init__(self):
+        self.chat_history = {}
+
+    def add_user(self, uid, text):
+        self.chat_history[uid]["user"].append(text)
+
+
+    def add_bot(self, uid, text):
+        self.chat_history[uid]["bot"].append(text)
+
+
+    def gen_model_input(self, uid, text, agent):
+        text += agent.seperator
+
+        current_tokens = agent.tokenizer(text)["input_ids"]
+        ch_for_current_turn = []
+        num_ch_tokens = len(current_tokens)
+
+        for u, m in zip(reversed(self.chat_history[uid]["user"]), reversed(self.chat_history[uid]["bot"])):
+            ch = u + agent.seperator + m + agent.seperator
+            tokens = agent.tokenizer(ch)["input_ids"]
+
+            num_ch_tokens += len(tokens)
+            if num_ch_tokens < agent.maxlen:
+                ch_for_current_turn.append(ch)
+            else:
+                break
+    
+        ch_for_current_turn = list(reversed(ch_for_current_turn))
+        return "".join(ch_for_current_turn) + text
+
+    def reset(self, uid):
+        self.chat_history[uid] = {
+            "user": [],
+            "bot": [],
+        }
+
+
+# --- CONFIG ---
+# AGENT = DialoGPTAgent("Lovery/Aqua")
+# AGENT = DialoGPTAgent("microsoft/DialoGPT-small")
+# AGENT = DialoGPTAgent("microsoft/DialoGPT-medium")
+# AGENT = DialoGPTAgent("microsoft/DialoGPT-large")
+# AGENT = DialoGPTAgent("deepparag/DumBot")
+# AGENT = DialoGPTAgent("abhiramtirumala/DialoGPT-sarcastic")
+# AGENT = DialoGPTAgent("Kryptone/monikAI")
+# AGENT = DialoGPTAgent("Kryptone/monikAI-Unstable")
+# AGENT = DialoGPTAgent("luca-martial/DialoGPT-Elon")
+AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
+# AGENT = DialoGPTAgent("transfaeries/DialoGPT-medium-Discord-1.0")
+
+# --- MAIN ---
 # initialize bottle web framework
 app = Bottle()
 
-# chat history storage for specific chat ids (usually user id)
-chat_history = {}
+# initialize chat history
+chat_history = ChatHistory()
 
 # chat route
 @app.route("/chat", method="POST")
 def do_chat():
-    print(f"{request.json['id']}: {request.json['text']}")
+    # cleanup request data
+    uid = request.json["id"]
+    uin = request.json["text"].strip()
+    print(f"[{uid}]: {uin}")
 
     # sanity fixes
-    if request.json['id'] not in chat_history:
-        reset_chat_history(request.json["id"])
+    if uid not in chat_history.chat_history:
+        chat_history.reset(uid)
 
-    reply = ""
-    if MODEL_TYPE == "DialoGPT":
-        # encode user input
-        user_input_ids = tokenizer.encode(request.json["text"] + tokenizer.eos_token, return_tensors="pt")
+    # generate input for model
+    model_input = chat_history.gen_model_input(uid, uin, AGENT)
+    chat_history.add_user(uid, uin)
 
-        # generate output with history clamped to 1000 tokens
-        model_input_ids = torch.cat([chat_history[request.json["id"]], user_input_ids], dim=-1) if chat_history[request.json["id"]] is not None else user_input_ids
-        try:
-            chat_history[request.json["id"]] = model.generate(
-                model_input_ids,
-                max_length=1000,
-                pad_token_id=tokenizer.eos_token_id,
-                num_beams=3,
-                no_repeat_ngram_size=4,
-                do_sample=False,
-                top_k=80,
-                top_p=0.9,
-                temperatue=0.8,
-                repetition_penaly=1.2,
-            )
-        except Exception:
-            reset_chat_history(request.json["id"])
-            print(f"Force reset history for: {request.json['id']}")
-            return json.dumps({ "error": "fr" })
+    # generate output from model
+    reply = AGENT.generate(model_input)
+    chat_history.add_bot(uid, reply)
+    print(f"[wozey]: {reply}")
 
-        # decode reply
-        reply = tokenizer.decode(chat_history[request.json["id"]][:, model_input_ids.shape[-1]:][0], skip_special_tokens=True).strip()
-    elif MODEL_TYPE == "blenderbot":
-        chat_history[request.json["id"]].append(request.json["text"])
-
-        if len(chat_history[request.json["id"]]) > 5:
-            chat_history[request.json["id"]].pop(0)
-            chat_history[request.json["id"]].pop(0)
-
-        # encode user input
-        uttr = "    ".join(chat_history[request.json["id"]])
-        model_input_ids = tokenizer([uttr], return_tensors="pt")
-
-        # generate output
-        try:
-            reply_ids = model.generate(**model_input_ids)
-        except Exception:
-            reset_chat_history(request.json["id"])
-            print(f"Force reset history for: {request.json['id']}")
-            return json.dumps({ "error": "fr" })
-
-        # decode reply
-        reply = tokenizer.batch_decode(reply_ids, skip_special_tokens=True)[0].strip()
-        chat_history[request.json["id"]].append(reply)
-
-    print(f"wozey: {reply}")
+    gc.collect()
 
     # send back
     return json.dumps({ "reply": reply })
@@ -113,16 +143,10 @@ def do_chat():
 def do_reset():
     print(f"Reset history for: {request.json['id']}")
 
-    reset_chat_history(request.json["id"])
+    chat_history.reset(request.json["id"])
 
     return
 
-
-def reset_chat_history(uid):
-    if MODEL_TYPE == "DialoGPT":
-        chat_history[uid] = None
-    elif MODEL_TYPE == "blenderbot":
-        chat_history[uid] = []
 
 # CORS Header
 @app.route('/<:re:.*>', method='OPTIONS')
