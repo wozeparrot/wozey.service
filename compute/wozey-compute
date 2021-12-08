@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BlenderbotTokenize
 import torch
 from bottle import Bottle, request, response
 
-# --- Agent ---
+# --- Agents ---
 class Agent(ABC):
     def __init__(self, seperator, maxlen, model, tokenizer):
         self.seperator = seperator
@@ -16,20 +16,20 @@ class Agent(ABC):
         self.tokenizer = tokenizer
 
     @abstractmethod
-    def generate(self, text, **kwargs):
+    def generate(self, text, user, **kwargs):
         raise NotImplemented
 
 
 class DialoGPTAgent(Agent):
-    def __init__(self, name, maxlen=64):
+    def __init__(self, name):
         super().__init__(
             seperator="<|endoftext|>",
-            maxlen=maxlen,
-            model = AutoModelForCausalLM.from_pretrained(name),
+            maxlen=64,
+            model=AutoModelForCausalLM.from_pretrained(name),
             tokenizer=AutoTokenizer.from_pretrained(name),
         )
     
-    def generate(self, text):
+    def generate(self, text, user):
         input_ids = self.tokenizer(
             text=text,
             return_tensors="pt",
@@ -43,12 +43,62 @@ class DialoGPTAgent(Agent):
             top_k=None,
             top_p=None,
             no_repeat_ngram_size=4,
-            length_penalty=0.65,
+            length_penalty=1.35,
             repetition_penalty=2.0,
             use_cache=True,
         )
 
         return self.tokenizer.decode(output_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True).strip()
+
+
+class GPTNeoAgent(Agent):
+    def __init__(self, name):
+        super().__init__(
+            seperator=" ",
+            maxlen=256,
+            model=AutoModelForCausalLM.from_pretrained(name),
+            tokenizer=AutoTokenizer.from_pretrained(name),
+        )
+    
+    def generate(self, text, user):
+        input_ids = self.tokenizer(
+            text=text,
+            max_length=self.maxlen,
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        output_ids = self.model.generate(
+            input_ids=input_ids,
+            pad_token_id=self.tokenizer.eos_token_id,
+            max_length=input_ids.size()[-1] + self.maxlen // 2,
+            early_stopping=True,
+            num_beams=6,
+            num_beam_groups=2,
+            top_k=None,
+            top_p=None,
+            no_repeat_ngram_size=4,
+            diverse_penalty=1.5,
+            length_penalty=0.7,
+            repetition_penalty=2.0,
+            use_cache=True,
+        )
+
+        reply = self.tokenizer.decode(
+            output_ids[:, input_ids.shape[-1]:][0],
+            skip_special_tokens=True,
+        ).strip()
+
+        for escape in [
+            f"{user}:",
+            f"{user.upper()}:",
+            f"{user.lower()}:",
+            "wozey:",
+            "WOZEY:",
+        ]:
+            reply = reply.replace(escape, "\n")
+        
+        return reply.split("\n")[0].strip()
 
 
 # --- CHAT HISTORY ---
@@ -65,9 +115,15 @@ class ChatHistory:
 
 
     def gen_model_input(self, uid, text, agent):
+        prefix = self.chat_history[uid]["prefix"]
+        if len(prefix) > 0:
+            prefix = agent.seperator.join(prefix) + agent.seperator
+        else:
+            prefix = ""
+
         text += agent.seperator
 
-        current_tokens = agent.tokenizer(text)["input_ids"]
+        current_tokens = agent.tokenizer(prefix + text)["input_ids"]
         ch_for_current_turn = []
         num_ch_tokens = len(current_tokens)
 
@@ -88,6 +144,7 @@ class ChatHistory:
         self.chat_history[uid] = {
             "user": [],
             "bot": [],
+            "prefix": [],
         }
 
 
@@ -96,13 +153,13 @@ class ChatHistory:
 # AGENT = DialoGPTAgent("microsoft/DialoGPT-small")
 # AGENT = DialoGPTAgent("microsoft/DialoGPT-medium")
 # AGENT = DialoGPTAgent("microsoft/DialoGPT-large")
-# AGENT = DialoGPTAgent("deepparag/DumBot")
 # AGENT = DialoGPTAgent("abhiramtirumala/DialoGPT-sarcastic")
 # AGENT = DialoGPTAgent("Kryptone/monikAI")
 # AGENT = DialoGPTAgent("Kryptone/monikAI-Unstable")
 # AGENT = DialoGPTAgent("luca-martial/DialoGPT-Elon")
 AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
 # AGENT = DialoGPTAgent("transfaeries/DialoGPT-medium-Discord-1.0")
+# AGENT = GPTNeoAgent("EleutherAI/gpt-neo-350M")
 
 # --- MAIN ---
 # initialize bottle web framework
@@ -116,6 +173,7 @@ chat_history = ChatHistory()
 def do_chat():
     # cleanup request data
     uid = request.json["id"]
+    user = request.json["user"]
     uin = request.json["text"].strip()
     print(f"[{uid}]: {uin}")
 
@@ -128,7 +186,7 @@ def do_chat():
     chat_history.add_user(uid, uin)
 
     # generate output from model
-    reply = AGENT.generate(model_input)
+    reply = AGENT.generate(model_input, user)
     chat_history.add_bot(uid, reply)
     print(f"[wozey]: {reply}")
 

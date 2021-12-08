@@ -32,6 +32,7 @@ return function(client) return {
                 -- generate post data
                 local post_data = json.stringify({
                     ["text"] = message.content:gsub(";ai ", "", 1),
+                    ["user"] = message.member.name,
                     ["id"] = message.member.id
                 })
                 log:log(3, "[ai] "..message.member.name.." said: "..message.content:gsub(";ai ", "", 1))
