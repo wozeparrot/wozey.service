@@ -9,7 +9,6 @@ local client = discordia.Client()
 -- CONFIG
 local prefix = ";"
 local features = {
-    require("features/pinged")(client),
     require("features/linker")(client),
     require("features/weeb")(client),
     require("features/economy")(client),
