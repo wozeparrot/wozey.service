@@ -111,7 +111,7 @@ class DialoGPTAgent(Agent):
             pad_token_id=self.tokenizer.eos_token_id,
             max_length=self.maxlen * 2,
             num_beams=5,
-            top_k=None,
+            top_k=20,
             top_p=None,
             no_repeat_ngram_size=4,
             length_penalty=0.65,
@@ -236,11 +236,11 @@ class BlenderBotAgent(Agent):
 # CHAT_AGENT = DialoGPTAgent("Kryptone/monikAI")
 # CHAT_AGENT = DialoGPTAgent("Kryptone/monikAI-Unstable")
 # CHAT_AGENT = DialoGPTAgent("luca-martial/DialoGPT-Elon")
-# CHAT_AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
+CHAT_AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
 # CHAT_AGENT = DialoGPTAgent("transfaeries/DialoGPT-medium-Discord-1.0")
 # CHAT_AGENT = GPTNeoAgent("EleutherAI/gpt-neo-125M")
 # CHAT_AGENT = GPTNeoAgent("EleutherAI/gpt-neo-1.3B")
-CHAT_AGENT = BlenderBotAgent("facebook/blenderbot-400M-distill")
+# CHAT_AGENT = BlenderBotAgent("facebook/blenderbot-400M-distill")
 
 # --- MAIN ---
 # initialize bottle web framework
