@@ -2,34 +2,99 @@
 import json
 import gc
 from abc import ABC, abstractmethod
+from typing import Any
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, BlenderbotTokenizer, BlenderbotForConditionalGeneration
+from transformers import GPT2LMHeadModel, GPTNeoForCausalLM, GPT2Tokenizer
 import torch
 from bottle import Bottle, request, response
 
+
+# --- CHAT HISTORY ---
+class ChatHistory:
+    def __init__(self):
+        self.chat_history = {}
+
+    def add_user(self, uid, text) -> None:
+        self.chat_history[uid]["user"].append(text)
+
+    def add_bot(self, uid, text: str) -> None:
+        self.chat_history[uid]["bot"].append(text)
+
+    def add_prefix(self, uid: int, text: str) -> None:
+        self.chat_history[uid]["prefix"].append(text)
+
+    def gen_model_input(self, uid: int, text: str, agent: Any) -> str:
+        prefix = self.chat_history[uid]["prefix"]
+        if len(prefix) > 0:
+            prefix = agent.seperator.join(prefix) + agent.seperator
+        else:
+            prefix = ""
+
+        current_tokens = agent.tokenizer(prefix + text)["input_ids"]
+        ch_for_current_turn = []
+        num_ch_tokens = len(current_tokens)
+
+        for u, m in zip(reversed(self.chat_history[uid]["user"]), reversed(self.chat_history[uid]["bot"])):
+            ch = u + agent.seperator + m + agent.seperator
+            tokens = agent.tokenizer(ch)["input_ids"]
+
+            num_ch_tokens += len(tokens)
+            if num_ch_tokens < agent.maxlen:
+                ch_for_current_turn.append(ch)
+            else:
+                break
+    
+        ch_for_current_turn = list(reversed(ch_for_current_turn))
+        return prefix + "".join(ch_for_current_turn) + text
+
+    def reset(self, uid: int) -> None:
+        self.chat_history[uid] = {
+            "user": [],
+            "bot": [],
+            "prefix": [],
+        }
+    
+    def is_empty(self, uid: int) -> bool:
+        return len(self.chat_history[uid]["user"]) == 0 and len(self.chat_history[uid]["bot"]) == 0 and len(self.chat_history[uid]["prefix"]) == 0
+
+
 # --- Agents ---
 class Agent(ABC):
-    def __init__(self, seperator, maxlen, model, tokenizer):
+    def __init__(self, seperator: str, maxlen: int, model: Any, tokenizer: Any):
         self.seperator = seperator
         self.maxlen = maxlen
         self.model = model
         self.tokenizer = tokenizer
+    
+    @abstractmethod
+    def init(self, ch: ChatHistory, uid: int, user: str) -> None:
+        raise NotImplemented
+    
+    @abstractmethod
+    def preprocess(self, text: str, user: str) -> str:
+        raise NotImplemented
 
     @abstractmethod
-    def generate(self, text, user, **kwargs):
+    def generate(self, text: str, user: str) -> str:
         raise NotImplemented
 
 
 class DialoGPTAgent(Agent):
-    def __init__(self, name):
+    def __init__(self, name: str):
         super().__init__(
             seperator="<|endoftext|>",
             maxlen=64,
-            model=AutoModelForCausalLM.from_pretrained(name),
-            tokenizer=AutoTokenizer.from_pretrained(name),
+            model=GPT2LMHeadModel.from_pretrained(name),
+            tokenizer=GPT2Tokenizer.from_pretrained(name),
         )
     
-    def generate(self, text, user):
+    def init(self, ch: ChatHistory, uid: int, user: str) -> None:
+        pass
+    
+    def preprocess(self, text: str, user: str) -> str:
+        return text + self.seperator
+    
+    def generate(self, text: str, user: str) -> str:
         input_ids = self.tokenizer(
             text=text,
             return_tensors="pt",
@@ -52,21 +117,32 @@ class DialoGPTAgent(Agent):
 
 
 class GPTNeoAgent(Agent):
-    def __init__(self, name):
+    def __init__(self, name: str):
         super().__init__(
             seperator=" ",
             maxlen=256,
-            model=AutoModelForCausalLM.from_pretrained(name),
-            tokenizer=AutoTokenizer.from_pretrained(name),
+            model=GPTNeoForCausalLM.from_pretrained(name),
+            tokenizer=GPT2Tokenizer.from_pretrained(name),
         )
     
-    def generate(self, text, user):
+    def init(self, ch: ChatHistory, uid: int, user: str) -> None:
+        prefixes = [
+            f"{user} and wozey start talking.",
+        ]
+
+        for prefix in prefixes:
+            ch.add_prefix(uid, prefix)
+    
+    def preprocess(self, text: str, user: str) -> str:
+        return f"{user}: {text}" + self.seperator + "wozey:"
+    
+    def generate(self, text: str, user: str):
         input_ids = self.tokenizer(
             text=text,
             max_length=self.maxlen,
             truncation=True,
             return_tensors="pt",
-        )
+        )["input_ids"]
 
         output_ids = self.model.generate(
             input_ids=input_ids,
@@ -75,7 +151,7 @@ class GPTNeoAgent(Agent):
             early_stopping=True,
             num_beams=6,
             num_beam_groups=2,
-            top_k=None,
+            top_k=20,
             top_p=None,
             no_repeat_ngram_size=4,
             diverse_penalty=1.5,
@@ -95,71 +171,26 @@ class GPTNeoAgent(Agent):
             f"{user.lower()}:",
             "wozey:",
             "WOZEY:",
+            "Wozey:",
         ]:
             reply = reply.replace(escape, "\n")
         
         return reply.split("\n")[0].strip()
 
 
-# --- CHAT HISTORY ---
-class ChatHistory:
-    def __init__(self):
-        self.chat_history = {}
-
-    def add_user(self, uid, text):
-        self.chat_history[uid]["user"].append(text)
-
-
-    def add_bot(self, uid, text):
-        self.chat_history[uid]["bot"].append(text)
-
-
-    def gen_model_input(self, uid, text, agent):
-        prefix = self.chat_history[uid]["prefix"]
-        if len(prefix) > 0:
-            prefix = agent.seperator.join(prefix) + agent.seperator
-        else:
-            prefix = ""
-
-        text += agent.seperator
-
-        current_tokens = agent.tokenizer(prefix + text)["input_ids"]
-        ch_for_current_turn = []
-        num_ch_tokens = len(current_tokens)
-
-        for u, m in zip(reversed(self.chat_history[uid]["user"]), reversed(self.chat_history[uid]["bot"])):
-            ch = u + agent.seperator + m + agent.seperator
-            tokens = agent.tokenizer(ch)["input_ids"]
-
-            num_ch_tokens += len(tokens)
-            if num_ch_tokens < agent.maxlen:
-                ch_for_current_turn.append(ch)
-            else:
-                break
-    
-        ch_for_current_turn = list(reversed(ch_for_current_turn))
-        return "".join(ch_for_current_turn) + text
-
-    def reset(self, uid):
-        self.chat_history[uid] = {
-            "user": [],
-            "bot": [],
-            "prefix": [],
-        }
-
-
 # --- CONFIG ---
-# AGENT = DialoGPTAgent("Lovery/Aqua")
-# AGENT = DialoGPTAgent("microsoft/DialoGPT-small")
-# AGENT = DialoGPTAgent("microsoft/DialoGPT-medium")
-# AGENT = DialoGPTAgent("microsoft/DialoGPT-large")
-# AGENT = DialoGPTAgent("abhiramtirumala/DialoGPT-sarcastic")
-# AGENT = DialoGPTAgent("Kryptone/monikAI")
-# AGENT = DialoGPTAgent("Kryptone/monikAI-Unstable")
-# AGENT = DialoGPTAgent("luca-martial/DialoGPT-Elon")
-AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
-# AGENT = DialoGPTAgent("transfaeries/DialoGPT-medium-Discord-1.0")
-# AGENT = GPTNeoAgent("EleutherAI/gpt-neo-350M")
+# CHAT_AGENT = DialoGPTAgent("Lovery/Aqua")
+# CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-small")
+# CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-medium")
+# CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-large")
+# CHAT_AGENT = DialoGPTAgent("abhiramtirumala/DialoGPT-sarcastic")
+# CHAT_AGENT = DialoGPTAgent("Kryptone/monikAI")
+# CHAT_AGENT = DialoGPTAgent("Kryptone/monikAI-Unstable")
+# CHAT_AGENT = DialoGPTAgent("luca-martial/DialoGPT-Elon")
+# CHAT_AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
+# CHAT_AGENT = DialoGPTAgent("transfaeries/DialoGPT-medium-Discord-1.0")
+CHAT_AGENT = GPTNeoAgent("EleutherAI/gpt-neo-125M")
+# CHAT_AGENT = GPTNeoAgent("EleutherAI/gpt-neo-1.3B")
 
 # --- MAIN ---
 # initialize bottle web framework
@@ -175,18 +206,22 @@ def do_chat():
     uid = request.json["id"]
     user = request.json["user"]
     uin = request.json["text"].strip()
-    print(f"[{uid}]: {uin}")
+    print(f"[{uid}, {user}]: {uin}")
 
     # sanity fixes
     if uid not in chat_history.chat_history:
         chat_history.reset(uid)
+    
+    # init agent for user
+    if chat_history.is_empty(uid):
+        CHAT_AGENT.init(chat_history, uid, user)
 
     # generate input for model
-    model_input = chat_history.gen_model_input(uid, uin, AGENT)
+    model_input = chat_history.gen_model_input(uid, CHAT_AGENT.preprocess(uin, user), CHAT_AGENT)
     chat_history.add_user(uid, uin)
 
     # generate output from model
-    reply = AGENT.generate(model_input, user)
+    reply = CHAT_AGENT.generate(model_input, user)
     chat_history.add_bot(uid, reply)
     print(f"[wozey]: {reply}")
 
