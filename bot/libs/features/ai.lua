@@ -88,6 +88,8 @@ return function(client) return {
                 req:write(post_data)
                 -- finish request
                 req:done()
+
+                message.channel:broadcastTyping()
             end
         },
         ["air"] = {
@@ -106,7 +108,7 @@ return function(client) return {
                 local req = http.request({
                     hostname = "localhost",
                     port = 6769,
-                    path = "/reset",
+                    path = "/reset_ch",
                     method = "POST",
                     headers = {
                         ["Content-Type"] = "application/json",

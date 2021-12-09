@@ -228,6 +228,7 @@ class BlenderBotAgent(Agent):
 
 
 # --- CONFIG ---
+# -- Chat Agent Selection --
 # CHAT_AGENT = DialoGPTAgent("Lovery/Aqua")
 # CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-small")
 # CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-medium")
@@ -282,8 +283,8 @@ def do_chat():
 
 
 # reset chat history route
-@app.route("/reset", method="POST")
-def do_reset():
+@app.route("/reset_ch", method="POST")
+def do_reset_ch():
     print(f"Reset history for: {request.json['id']}")
 
     chat_history.reset(request.json["id"])
