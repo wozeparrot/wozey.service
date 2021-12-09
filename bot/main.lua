@@ -6,7 +6,7 @@ local discordia = require("discordia")
 discordia.extensions()
 local client = discordia.Client()
 
--- load features
+-- CONFIG
 local prefix = ";"
 local features = {
     require("features/pinged")(client),
@@ -19,12 +19,60 @@ local features = {
     require("features/ai")(client)
 }
 
+-- MAIN
+-- helper functions
+local function feature_visible_for_user(feature, user)
+    if user == nil then return false end
+
+    if feature.hidden then return false end
+
+    if user == client.owner then return true else if feature.owner_only then return false end end
+
+    if feature.required_perms then
+        for i, perm in ipairs(feature.required_perms) do
+            if not user:hasPermission(perm) then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+local function command_visible_for_user(command, user)
+    if user == nil then return false end
+
+    if command.required_perms then
+        for i, pem in ipairs(command.required_perms) do
+            if not user:hasPermission(perm) then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+local function get_feature_by_name(name)
+    for i, feature in ipairs(features) do
+        if feature.name:lower() == name:lower() then
+            return feature
+        end
+    end
+
+    return nil
+end
+
+-- load features
 for i, feature in ipairs(features) do
     -- register feature commands
     client:on('messageCreate', function(message)
         -- don't do anything if its ourself
         if message.author == client.user then return end
         if message.member == nil then return end
+
+        -- check if they can access the feature
+        if not feature_visible_for_user(feature, message.author) then return end
 
         -- split into args
         local args = message.content:split(" ")
@@ -33,20 +81,7 @@ for i, feature in ipairs(features) do
         if not args[1]:startswith(prefix) then return end
         local command = feature.commands[args[1]:gsub(prefix, "")]
         if command then
-            if command.owner_only or feature.owner_only then
-                if message.author == client.owner then
-                    -- execute if found
-                    command.exec(message)
-                end
-            else
-                if command.required_perms and message.author ~= client.owner then
-                    for i, perm in ipairs(command.required_perms) do
-                        if not message.member:hasPermission(perm) then
-                            return
-                        end
-                    end
-                end
-                -- execute if found
+            if command_visible_for_user(command, message.author) then
                 command.exec(message)
             end
         end
@@ -64,118 +99,59 @@ client:on("messageCreate", function(message)
 	if message.author == client.user then return end
     if message.member == nil then return end
 
-    if message.content == prefix.."help" then
-        -- loop over features, one help embed per feature
-        for i, feature in ipairs(features) do
-            if not feature.hidden then
-                if feature.owner_only then
-                    if message.author == client.owner then
-                        -- generate fields for commands
-                        local fields = {}
-                        for name, command in pairs(feature.commands) do
-                            if not command.owner_only then
-                                table.insert(fields, {
-                                    name = prefix..name,
-                                    value = command.description,
-                                    inline = true
-                                })
-                            else
-                                if message.author == client.owner then
-                                    table.insert(fields, {
-                                        name = prefix..name.."*",
-                                        value = command.description,
-                                        inline = true
-                                    })
-                                end
-                            end
-                        end
+    local args = message.content:split(" ")
 
-                        message:reply({
-                            embed = {
-                                title = feature.name.."*",
-                                description = feature.description,
-                                fields = fields
-                            },
-                            reference = { message = message, mention = true },
-                        })
-                    end
-                else
-                    if feature.required_perms and message.author ~= client.owner then
-                        local has_perms = true
-                        for i, perm in ipairs(feature.required_perms) do
-                            if not message.member:hasPermission(perm) then
-                                has_perms = false
-                                break
-                            end
-                        end
-
-                        if has_perms then
-                            -- generate fields for commands
-                            local fields = {}
-                            for name, command in pairs(feature.commands) do
-                                if not command.owner_only then
-                                    table.insert(fields, {
-                                        name = prefix..name,
-                                        value = command.description,
-                                        inline = true
-                                    })
-                                else
-                                    if message.author == client.owner then
-                                        table.insert(fields, {
-                                            name = prefix..name.."*",
-                                            value = command.description,
-                                            inline = true
-                                        })
-                                    end
-                                end
-                            end
-
-                            message:reply({
-                                embed = {
-                                    title = feature.name,
-                                    description = feature.description,
-                                    fields = fields
-                                },
-                                reference = { message = message, mention = true },
-                            })
-                        end
-                    else
-                        -- generate fields for commands
-                        local fields = {}
-                        for name, command in pairs(feature.commands) do
-                            if not command.owner_only then
-                                table.insert(fields, {
-                                    name = prefix..name,
-                                    value = command.description,
-                                    inline = true
-                                })
-                            else
-                                if message.author == client.owner then
-                                    table.insert(fields, {
-                                        name = prefix..name.."*",
-                                        value = command.description,
-                                        inline = true
-                                    })
-                                end
-                            end
-                        end
-
-                        message:reply({
-                            embed = {
-                                title = feature.name,
-                                description = feature.description,
-                                fields = fields
-                            },
-                            reference = { message = message, mention = true },
-                        })
-                    end
+    if args[1] == prefix.."help" then
+        -- no feature specified so just list features
+        if args[2] == nil or get_feature_by_name(args[2]) == nil then
+            -- generate embed fields
+            local fields = {}
+            for i, feature in ipairs(features) do
+                if feature_visible_for_user(feature, message.author) then
+                    table.insert(fields, {
+                        name = feature.name,
+                        value = feature.description,
+                    })
                 end
             end
+
+            -- send message
+            message:reply({
+                embed = {
+                    title = "Help (Features)",
+                    description = "A list of all available features. Do ;help <feature> for feature specific help.",
+                    fields = fields,
+                },
+                reference = { message = message, mention = true },
+            })
+        else -- feature specified so print feature specific help
+            local feature = get_feature_by_name(args[2])
+
+            -- generate embed fields
+            local fields = {}
+            for name, command in pairs(feature.commands) do
+                if command_visible_for_user(command, message.author) then
+                    table.insert(fields, {
+                        name = prefix..name,
+                        value = command.description,
+                        inline = true,
+                    })
+                end
+            end
+
+            message:reply({
+                embed = {
+                    title = "Help ("..feature.name..")",
+                    description = feature.description,
+                    fields = fields,
+                },
+                reference = { message = message, mention = true },
+            })
         end
     end
 end)
 
--- Main Function
+-- main function
 local function main()
     -- cleanup old runtime stuff
     os.execute("rm -r ./wrun")
