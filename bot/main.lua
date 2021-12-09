@@ -21,8 +21,8 @@ local features = {
 
 -- MAIN
 -- helper functions
-local function feature_visible_for_user(feature, user)
-    if user == nil then return false end
+local function feature_visible_for_user(feature, member)
+    local user = member.user
 
     if feature.hidden then return false end
 
@@ -30,7 +30,7 @@ local function feature_visible_for_user(feature, user)
 
     if feature.required_perms then
         for i, perm in ipairs(feature.required_perms) do
-            if not user:hasPermission(perm) then
+            if not member:hasPermission(perm) then
                 return false
             end
         end
@@ -39,12 +39,12 @@ local function feature_visible_for_user(feature, user)
     return true
 end
 
-local function command_visible_for_user(command, user)
-    if user == nil then return false end
+local function command_visible_for_user(command, member)
+    local user = member.user
 
     if command.required_perms then
         for i, pem in ipairs(command.required_perms) do
-            if not user:hasPermission(perm) then
+            if not member:hasPermission(perm) then
                 return false
             end
         end
@@ -72,7 +72,7 @@ for i, feature in ipairs(features) do
         if message.member == nil then return end
 
         -- check if they can access the feature
-        if not feature_visible_for_user(feature, message.author) then return end
+        if not feature_visible_for_user(feature, message.member) then return end
 
         -- split into args
         local args = message.content:split(" ")
@@ -81,7 +81,7 @@ for i, feature in ipairs(features) do
         if not args[1]:startswith(prefix) then return end
         local command = feature.commands[args[1]:gsub(prefix, "")]
         if command then
-            if command_visible_for_user(command, message.author) then
+            if command_visible_for_user(command, message.member) then
                 command.exec(message)
             end
         end
@@ -107,7 +107,7 @@ client:on("messageCreate", function(message)
             -- generate embed fields
             local fields = {}
             for i, feature in ipairs(features) do
-                if feature_visible_for_user(feature, message.author) then
+                if feature_visible_for_user(feature, message.member) then
                     table.insert(fields, {
                         name = feature.name,
                         value = feature.description,
@@ -130,7 +130,7 @@ client:on("messageCreate", function(message)
             -- generate embed fields
             local fields = {}
             for name, command in pairs(feature.commands) do
-                if command_visible_for_user(command, message.author) then
+                if command_visible_for_user(command, message.member) then
                     table.insert(fields, {
                         name = prefix..name,
                         value = command.description,
