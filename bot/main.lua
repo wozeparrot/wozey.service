@@ -41,8 +41,10 @@ end
 local function command_visible_for_user(command, member)
     local user = member.user
 
+    if user == client.owner then return true else if command.owner_only then return false end end
+
     if command.required_perms then
-        for i, pem in ipairs(command.required_perms) do
+        for i, perm in ipairs(command.required_perms) do
             if not member:hasPermission(perm) then
                 return false
             end
