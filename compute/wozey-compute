@@ -3,8 +3,10 @@ import json
 import gc
 from abc import ABC, abstractmethod
 from typing import Any
+import operator
 
-from transformers import GPT2LMHeadModel, GPTNeoForCausalLM, GPT2Tokenizer, BlenderbotForConditionalGeneration, BlenderbotTokenizer
+from transformers import GPT2LMHeadModel, GPTNeoForCausalLM, GPT2TokenizerFast, BlenderbotForConditionalGeneration, BlenderbotTokenizer
+from transformers import pipeline
 import torch
 from bottle import Bottle, request, response
 
@@ -58,8 +60,8 @@ class ChatHistory:
         return len(self.chat_history[uid]["user"]) == 0 and len(self.chat_history[uid]["bot"]) == 0 and len(self.chat_history[uid]["prefix"]) == 0
 
 
-# --- Agents ---
-class Agent(ABC):
+# --- ChatAgents ---
+class ChatAgent(ABC):
     def __init__(self, seperator: str, maxlen: int, model: Any, tokenizer: Any):
         self.seperator = seperator
         self.maxlen = maxlen
@@ -79,13 +81,13 @@ class Agent(ABC):
         raise NotImplemented
 
 
-class DialoGPTAgent(Agent):
+class DialoGPTChatAgent(ChatAgent):
     def __init__(self, name: str):
         super().__init__(
             seperator="<|endoftext|>",
             maxlen=128,
-            model=GPT2LMHeadModel.from_pretrained(name),
-            tokenizer=GPT2Tokenizer.from_pretrained(name),
+            model=GPT2LMHeadModel.from_pretrained(name).eval(),
+            tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
     
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
@@ -122,13 +124,13 @@ class DialoGPTAgent(Agent):
         return self.tokenizer.decode(output_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True).strip()
 
 
-class GPTNeoAgent(Agent):
+class GPTNeoChatAgent(ChatAgent):
     def __init__(self, name: str):
         super().__init__(
             seperator=" ",
             maxlen=256,
             model=GPTNeoForCausalLM.from_pretrained(name),
-            tokenizer=GPT2Tokenizer.from_pretrained(name),
+            tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
     
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
@@ -184,7 +186,7 @@ class GPTNeoAgent(Agent):
         return reply.split("\n")[0].strip()
 
 
-class BlenderBotAgent(Agent):
+class BlenderBotChatAgent(ChatAgent):
     def __init__(self, name: str):
         super().__init__(
             seperator="    ",
@@ -229,19 +231,23 @@ class BlenderBotAgent(Agent):
 
 # --- CONFIG ---
 # -- Chat Agent Selection --
-# CHAT_AGENT = DialoGPTAgent("Lovery/Aqua")
-# CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-small")
-# CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-medium")
-# CHAT_AGENT = DialoGPTAgent("microsoft/DialoGPT-large")
-# CHAT_AGENT = DialoGPTAgent("abhiramtirumala/DialoGPT-sarcastic")
-# CHAT_AGENT = DialoGPTAgent("Kryptone/monikAI")
-# CHAT_AGENT = DialoGPTAgent("Kryptone/monikAI-Unstable")
-# CHAT_AGENT = DialoGPTAgent("luca-martial/DialoGPT-Elon")
-CHAT_AGENT = DialoGPTAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
-# CHAT_AGENT = DialoGPTAgent("transfaeries/DialoGPT-medium-Discord-1.0")
-# CHAT_AGENT = GPTNeoAgent("EleutherAI/gpt-neo-125M")
-# CHAT_AGENT = GPTNeoAgent("EleutherAI/gpt-neo-1.3B")
-# CHAT_AGENT = BlenderBotAgent("facebook/blenderbot-400M-distill")
+# CHAT_AGENT = DialoGPTChatAgent("Lovery/Aqua")
+# CHAT_AGENT = DialoGPTChatAgent("microsoft/DialoGPT-small")
+# CHAT_AGENT = DialoGPTChatAgent("microsoft/DialoGPT-medium")
+# CHAT_AGENT = DialoGPTChatAgent("microsoft/DialoGPT-large")
+# CHAT_AGENT = DialoGPTChatAgent("abhiramtirumala/DialoGPT-sarcastic")
+# CHAT_AGENT = DialoGPTChatAgent("Kryptone/monikAI")
+# CHAT_AGENT = DialoGPTChatAgent("Kryptone/monikAI-Unstable")
+# CHAT_AGENT = DialoGPTChatAgent("luca-martial/DialoGPT-Elon")
+CHAT_AGENT = DialoGPTChatAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
+# CHAT_AGENT = DialoGPTChatAgent("transfaeries/DialoGPT-medium-Discord-1.0")
+# CHAT_AGENT = GPTNeoChatAgent("EleutherAI/gpt-neo-125M")
+# CHAT_AGENT = GPTNeoChatAgent("EleutherAI/gpt-neo-1.3B")
+# CHAT_AGENT = BlenderBotChatAgent("facebook/blenderbot-400M-distill")
+
+# -- Toxic Agent Selection --
+TOXIC_AGENT = pipeline("text-classification", model="unitary/toxic-bert", tokenizer='bert-base-uncased', function_to_apply='sigmoid', return_all_scores=True)
+
 
 # --- MAIN ---
 # initialize bottle web framework
@@ -257,7 +263,7 @@ def do_chat():
     uid = request.json["id"]
     user = request.json["user"]
     uin = request.json["text"].strip()
-    print(f"[{uid}, {user}]: {uin}")
+    print(f"[chat][{uid}, {user}]: {uin}")
 
     # sanity fixes
     if uid not in chat_history.chat_history:
@@ -274,7 +280,7 @@ def do_chat():
     # generate output from model
     reply = CHAT_AGENT.generate(model_input, user)
     chat_history.add_bot(uid, reply)
-    print(f"[wozey]: {reply}")
+    print(f"[chat][wozey]: {reply}")
 
     gc.collect()
 
@@ -289,7 +295,20 @@ def do_reset_ch():
 
     chat_history.reset(request.json["id"])
 
-    return
+
+# toxic analysis route
+@app.route("/toxic", method="POST")
+def do_toxic():
+    user = request.json["user"]
+    text = request.json["text"].strip()
+    print(f"[toxic][{user}]: {text}")
+
+    results = TOXIC_AGENT(text)
+    print(f"[toxic]: {results}")
+    max_label = max(results[0], key=lambda x: x["score"])
+    print(f"[toxic] Max label is {max_label['label']} with score {max_label['score']}")
+
+    return json.dumps(max_label)
 
 
 # CORS Header
@@ -311,4 +330,7 @@ def apply_cors():
 
 
 app.add_hook('after_request', apply_cors)
+
+# run
+gc.collect()
 app.run(host="::", port=6769)

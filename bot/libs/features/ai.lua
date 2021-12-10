@@ -15,6 +15,8 @@ return function(client) return {
                 -- don't do anything if its ourself
                 if message.author == client.user then return end
                 if message.member == nil then return end
+                -- also don't do anything if its another bot
+                if message.author.bot then return end
 
                 local args = message.content:split(" ")
 
@@ -64,13 +66,6 @@ return function(client) return {
                             return
                         end
                         
-                        if json_response.error then
-                            if json_response.error == "fr" then
-                                message:addReaction("⚪")
-                                return
-                            end
-                        end
-
                         if json_response.reply == nil or json_response.reply == "" then
                             message:addReaction("❌")
                             return
@@ -98,6 +93,8 @@ return function(client) return {
                 -- don't do anything if its ourself
                 if message.author == client.user then return end
                 if message.member == nil then return end
+                -- also don't do anything if its another bot
+                if message.author.bot then return end
 
                 -- generate post data
                 local post_data = json.stringify({
@@ -125,5 +122,56 @@ return function(client) return {
             end
         },
     },
-    callbacks = {}
+    callbacks = {
+        ["messageCreate"] = function(message)
+            -- don't do anything if its ourself
+            if message.author == client.user then return end
+            if message.member == nil then return end
+            -- also don't do anything if its another bot
+            if message.author.bot then return end
+
+            -- TOXICITY DETECTOR
+            -- generate post data
+            local post_data = json.stringify({
+                ["text"] = message.content,
+                ["user"] = message.member.name,
+            })
+
+            local response = ""
+            -- generate request
+            local req = http.request({
+                hostname = "localhost",
+                port = 6769,
+                path = "/toxic",
+                method = "POST",
+                headers = {
+                    ["Content-Type"] = "application/json",
+                    ["Content-Length"] = #post_data,
+                    ["Accept"] = "application/json"
+                },
+            }, function(res)
+                -- append to response string
+                res:on("data", function(chunk)
+                    response = response..chunk
+                end)
+                -- run stuff
+                res:on("end", coroutine.wrap(function()
+                    -- parse returned json
+                    local json_response = json.parse(response)
+                    if json_response == nil then return end
+
+                    if (json_response.score >= 0.8 and json_response.label == "severe_toxic") or (json_response.score >= 0.998 and json_response.label == "toxic") then
+                        message:reply({
+                            content = "Whoa there! Thats really toxic. Can't have that around here!",
+                            reference = { message = message, mention = true },
+                        })
+                    end
+                end))
+            end)
+            -- write post data
+            req:write(post_data)
+            -- finish request
+            req:done()
+        end
+    }
 }end
