@@ -1,4 +1,4 @@
-return function(client) return {
+return function(client, prefix) return {
     name = "Dynamic Voice Channels",
     description = "Manages temporary voice channels",
     hidden = true,

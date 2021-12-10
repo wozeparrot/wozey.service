@@ -9,13 +9,13 @@ local client = discordia.Client()
 -- CONFIG
 local prefix = ";"
 local features = {
-    require("features/linker")(client),
-    require("features/weeb")(client),
-    require("features/economy")(client),
-    require("features/dynamic_voice_channels")(client),
-    require("features/poll")(client),
-    require("features/music")(client),
-    require("features/ai")(client)
+    require("features/linker")(client, prefix),
+    require("features/weeb")(client, prefix),
+    require("features/economy")(client, prefix),
+    require("features/dynamic_voice_channels")(client, prefix),
+    require("features/poll")(client, prefix),
+    require("features/music")(client, prefix),
+    require("features/ai")(client, prefix)
 }
 
 -- MAIN
@@ -69,6 +69,8 @@ for i, feature in ipairs(features) do
         -- don't do anything if its ourself
         if message.author == client.user then return end
         if message.member == nil then return end
+        -- also don't do anything if its another bot
+        if message.author.bot then return end
 
         -- check if they can access the feature
         if not feature_visible_for_user(feature, message.member) then return end
@@ -97,6 +99,8 @@ client:on("messageCreate", function(message)
 	-- don't do anything on our own messages
 	if message.author == client.user then return end
     if message.member == nil then return end
+    -- also don't do anything if its another bot
+    if message.author.bot then return end   
 
     local args = message.content:split(" ")
 

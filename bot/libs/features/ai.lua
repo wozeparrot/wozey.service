@@ -1,23 +1,17 @@
 local http = require("http")
 local json = require("json")
 local url = require("url")
-local time = require("discordia").Time
+local timer = require("timer")
 
 local log = require("discordia").Logger(3, "%F %T")
 
-return function(client) return {
+return function(client, prefix) return {
     name = "AI",
     description = "Attempts to be a chattable bot",
     commands = {
         ["ai"] = {
             description = "Talk with the bot",
             exec = function(message)
-                -- don't do anything if its ourself
-                if message.author == client.user then return end
-                if message.member == nil then return end
-                -- also don't do anything if its another bot
-                if message.author.bot then return end
-
                 local args = message.content:split(" ")
 
                 if not args[2] then
@@ -90,12 +84,6 @@ return function(client) return {
         ["air"] = {
             description = "Reset chat history with the bot",
             exec = function(message)
-                -- don't do anything if its ourself
-                if message.author == client.user then return end
-                if message.member == nil then return end
-                -- also don't do anything if its another bot
-                if message.author.bot then return end
-
                 -- generate post data
                 local post_data = json.stringify({
                     ["id"] = message.member.id
@@ -121,6 +109,61 @@ return function(client) return {
                 message:addReaction("✅")
             end
         },
+        ["dtoxic"] = {
+            description = "Debugs the toxicity detector by printing out the scores for some text",
+            exec = function(message)
+                -- generate post data
+                local post_data = json.stringify({
+                    ["text"] = message.content:gsub(";dtoxic ", "", 1),
+                    ["user"] = message.member.name,
+                })
+
+                local response = ""
+                -- generate request
+                local req = http.request({
+                    hostname = "localhost",
+                    port = 6769,
+                    path = "/toxic",
+                    method = "POST",
+                    headers = {
+                        ["Content-Type"] = "application/json",
+                        ["Content-Length"] = #post_data,
+                        ["Accept"] = "application/json"
+                    },
+                }, function(res)
+                    -- append to response string
+                    res:on("data", function(chunk)
+                        response = response..chunk
+                    end)
+                    -- run stuff
+                    res:on("end", coroutine.wrap(function()
+                        -- parse returned json
+                        local json_response = json.parse(response)
+                        if json_response == nil then return end
+
+                        local fields = {}
+                        for label, score in pairs(json_response) do
+                            table.insert(fields, {
+                                name = label,
+                                value = string.format("%f", score),
+                                inline = false,
+                            })
+                        end
+
+                        message:reply({
+                            embed = {
+                                fields = fields,
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                    end))
+                end)
+                -- write post data
+                req:write(post_data)
+                -- finish request
+                req:done()
+            end
+        },
     },
     callbacks = {
         ["messageCreate"] = function(message)
@@ -129,6 +172,8 @@ return function(client) return {
             if message.member == nil then return end
             -- also don't do anything if its another bot
             if message.author.bot then return end
+            -- don't check on our own commands
+            if message.content:sub(1, 1) == prefix then return end
 
             -- TOXICITY DETECTOR
             -- generate post data
@@ -160,9 +205,15 @@ return function(client) return {
                     local json_response = json.parse(response)
                     if json_response == nil then return end
 
-                    if (json_response.score >= 0.8 and json_response.label == "severe_toxic") or (json_response.score >= 0.998 and json_response.label == "toxic") then
+                    if json_response["severe_toxicity"] >= 0.7 or (json_response["toxicity"] >= 0.95 and json_response["obscene"] >= 0.9 and json_response["insult"] >= 0.9) then
                         message:reply({
                             content = "Whoa there! Thats really toxic. Can't have that around here!",
+                            reference = { message = message, mention = true },
+                        })
+                    end
+                    if json_response["identity_attack"] >= 0.8 then
+                        message:reply({
+                            content = "Whoa there! Thats kinda racist. Can't have that around here!",
                             reference = { message = message, mention = true },
                         })
                     end

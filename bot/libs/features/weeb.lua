@@ -3,17 +3,13 @@ local json = require("json")
 local url = require("url")
 local time = require("discordia").Time
 
-return function(client) return {
+return function(client, prefix) return {
     name = "Weeb",
     description = "Miscellaneous Weeb Stuff",
     commands = {
         ["animeq"] = {
             description = "Sends a random anime quote",
             exec = function(message)
-                -- don't do anything if its ourself
-                if message.author == client.user then return end
-                if message.member == nil then return end
-
                 -- stored response string
                 local response = ""
                 -- generate request
@@ -47,10 +43,6 @@ return function(client) return {
         ["waifu"] = {
             description = "Sends a random pic of a waifu",
             exec = function(message)
-                -- don't do anything if its ourself
-                if message.author == client.user then return end
-                if message.member == nil then return end
-
                 -- stored response string
                 local response = ""
                 -- generate request

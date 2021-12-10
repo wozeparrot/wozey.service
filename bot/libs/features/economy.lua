@@ -59,7 +59,7 @@ local function get_bet(message)
     return nil
 end
 
-return function(client) return {
+return function(client, prefix) return {
     name = "Economy",
     description = "Simulated server economy",
     commands = {

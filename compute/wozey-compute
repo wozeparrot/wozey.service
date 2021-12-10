@@ -246,7 +246,7 @@ CHAT_AGENT = DialoGPTChatAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
 # CHAT_AGENT = BlenderBotChatAgent("facebook/blenderbot-400M-distill")
 
 # -- Toxic Agent Selection --
-TOXIC_AGENT = pipeline("text-classification", model="unitary/toxic-bert", tokenizer='bert-base-uncased', function_to_apply='sigmoid', return_all_scores=True)
+TOXIC_AGENT = pipeline("text-classification", model="unitary/unbiased-toxic-roberta", function_to_apply="sigmoid", return_all_scores=True)
 
 
 # --- MAIN ---
@@ -303,33 +303,11 @@ def do_toxic():
     text = request.json["text"].strip()
     print(f"[toxic][{user}]: {text}")
 
-    results = TOXIC_AGENT(text)
-    print(f"[toxic]: {results}")
-    max_label = max(results[0], key=lambda x: x["score"])
-    print(f"[toxic] Max label is {max_label['label']} with score {max_label['score']}")
+    results = {res["label"]: res["score"] for res in TOXIC_AGENT(text)[0]}
+    print({k: round(results[k], 3) for k in results})
 
-    return json.dumps(max_label)
+    return json.dumps(results)
 
-
-# CORS Header
-@app.route('/<:re:.*>', method='OPTIONS')
-def cors():
-    pass
-
-
-headers = ['Origin', 'Accept', 'Content-Type',
-           'X-Requested-With', 'X-CSRF-Token',
-           'Authorization']
-HEADERS = ', '.join((headers + [h.lower() for h in headers]))
-
-
-def apply_cors():
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'POST'
-    response.headers['Access-Control-Allow-Headers'] = HEADERS
-
-
-app.add_hook('after_request', apply_cors)
 
 # run
 gc.collect()
