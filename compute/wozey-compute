@@ -133,7 +133,7 @@ class GPTNeoChatAgent(ChatAgent):
         super().__init__(
             seperator=" ",
             maxlen=256,
-            model=model,
+            model=model.eval(),
             tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
     
@@ -198,7 +198,7 @@ class BlenderBotChatAgent(ChatAgent):
         super().__init__(
             seperator="    ",
             maxlen=128,
-            model=model,
+            model=model.eval(),
             tokenizer=BlenderbotTokenizer.from_pretrained(name),
         )
     
