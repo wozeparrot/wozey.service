@@ -83,10 +83,12 @@ class ChatAgent(ABC):
 
 class DialoGPTChatAgent(ChatAgent):
     def __init__(self, name: str):
+        model = GPT2LMHeadModel.from_pretrained(name)
+
         super().__init__(
             seperator="<|endoftext|>",
             maxlen=128,
-            model=GPT2LMHeadModel.from_pretrained(name).eval(),
+            model=torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8),
             tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
     
@@ -126,16 +128,19 @@ class DialoGPTChatAgent(ChatAgent):
 
 class GPTNeoChatAgent(ChatAgent):
     def __init__(self, name: str):
+        model = GPTNeoForCausalLM.from_pretrained(name)
+
         super().__init__(
             seperator=" ",
             maxlen=256,
-            model=GPTNeoForCausalLM.from_pretrained(name),
+            model=model,
             tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
     
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
         prefixes = [
             f"{user} and wozey start talking.",
+            f"I'm {user} and your wozey!",
         ]
 
         for prefix in prefixes:
@@ -188,10 +193,12 @@ class GPTNeoChatAgent(ChatAgent):
 
 class BlenderBotChatAgent(ChatAgent):
     def __init__(self, name: str):
+        model = BlenderbotForConditionalGeneration.from_pretrained(name)
+
         super().__init__(
             seperator="    ",
             maxlen=128,
-            model=BlenderbotForConditionalGeneration.from_pretrained(name),
+            model=model,
             tokenizer=BlenderbotTokenizer.from_pretrained(name),
         )
     
