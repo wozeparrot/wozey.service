@@ -88,7 +88,7 @@ class DialoGPTChatAgent(ChatAgent):
         super().__init__(
             seperator="<|endoftext|>",
             maxlen=128,
-            model=model,
+            model=model.eval(),
             tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
     
