@@ -118,7 +118,7 @@ class DialoGPTChatAgent(ChatAgent):
             top_k=20,
             top_p=None,
             no_repeat_ngram_size=4,
-            length_penalty=0.65,
+            length_penalty=1.35,
             repetition_penalty=2.0,
             use_cache=True,
         )
