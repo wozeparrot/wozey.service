@@ -205,18 +205,17 @@ return function(client, prefix) return {
                     local json_response = json.parse(response)
                     if json_response == nil then return end
 
-                    if json_response["severe_toxicity"] >= 0.7 or (json_response["toxicity"] >= 0.95 and json_response["obscene"] >= 0.5 and json_response["insult"] >= 0.9) or (json_response["toxicity"] >= 0.9 and json_response["threat"] >= 0.9) then
+                    if json_response["severe_toxicity"] >= 0.7 or (json_response["toxicity"] >= 0.9 and json_response["obscene"] >= 0.5 and json_response["insult"] >= 0.75) or (json_response["toxicity"] >= 0.85 and json_response["threat"] >= 0.85) then
                         message:reply({
                             content = "Whoa there! Thats really toxic. Can't have that around here!",
                             reference = { message = message, mention = true },
                         })
-                    end
-                    if json_response["identity_attack"] >= 0.8 and json_response["toxicity"] >= 0.9 then
+                    else if json_response["identity_attack"] >= 0.8 and json_response["toxicity"] >= 0.85 then
                         message:reply({
                             content = "Whoa there! Thats kinda bad. Can't have that around here!",
                             reference = { message = message, mention = true },
                         })
-                    end
+                    end end
                 end))
             end)
             -- write post data
