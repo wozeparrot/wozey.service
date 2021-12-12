@@ -284,7 +284,7 @@ toxic_lock = RLock()
 # chat route
 @app.route("/chat", method="POST")
 def do_chat():
-    if True:
+    with chat_lock:
         # cleanup request data
         uid = request.json["id"]
         user = request.json["user"]
@@ -317,7 +317,7 @@ def do_chat():
 # reset chat history route
 @app.route("/reset_ch", method="POST")
 def do_reset_ch():
-    if True:
+    with chat_lock:
         print(f"Reset history for: {request.json['id']}")
 
         chat_history.reset(request.json["id"])
