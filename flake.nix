@@ -69,7 +69,7 @@
 
             src = ./compute;
 
-            propagatedBuildInputs = [ transformers tokenizers pytorch bottle ];
+            propagatedBuildInputs = [ transformers tokenizers pytorch bottle gevent ];
           };
           defaultPackage = packages.wozey;
           

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from gevent import monkey; monkey.patch_all()
+
 import json
 import gc
 from abc import ABC, abstractmethod
@@ -8,6 +10,9 @@ import operator
 from transformers import GPT2LMHeadModel, GPTNeoForCausalLM, GPT2TokenizerFast, BlenderbotForConditionalGeneration, BlenderbotTokenizer
 from transformers import pipeline
 import torch
+
+import gevent
+from gevent.lock import RLock
 from bottle import Bottle, request, response
 
 
@@ -15,46 +20,52 @@ from bottle import Bottle, request, response
 class ChatHistory:
     def __init__(self):
         self.chat_history = {}
+        self.lock = RLock()
 
     def add_user(self, uid, text) -> None:
-        self.chat_history[uid]["user"].append(text)
+        with self.lock:
+            self.chat_history[uid]["user"].append(text)
 
     def add_bot(self, uid, text: str) -> None:
-        self.chat_history[uid]["bot"].append(text)
+        with self.lock:
+            self.chat_history[uid]["bot"].append(text)
 
     def add_prefix(self, uid: int, text: str) -> None:
-        self.chat_history[uid]["prefix"].append(text)
+        with self.lock:
+            self.chat_history[uid]["prefix"].append(text)
 
     def gen_model_input(self, uid: int, text: str, agent: Any) -> str:
-        prefix = self.chat_history[uid]["prefix"]
-        if len(prefix) > 0:
-            prefix = agent.seperator.join(prefix) + agent.seperator
-        else:
-            prefix = ""
-
-        current_tokens = agent.tokenizer(prefix + text)["input_ids"]
-        ch_for_current_turn = []
-        num_ch_tokens = len(current_tokens)
-
-        for u, m in zip(reversed(self.chat_history[uid]["user"]), reversed(self.chat_history[uid]["bot"])):
-            ch = u + agent.seperator + m + agent.seperator
-            tokens = agent.tokenizer(ch)["input_ids"]
-
-            num_ch_tokens += len(tokens)
-            if num_ch_tokens < agent.maxlen:
-                ch_for_current_turn.append(ch)
+        with self.lock:
+            prefix = self.chat_history[uid]["prefix"]
+            if len(prefix) > 0:
+                prefix = agent.seperator.join(prefix) + agent.seperator
             else:
-                break
+                prefix = ""
+
+            current_tokens = agent.tokenizer(prefix + text)["input_ids"]
+            ch_for_current_turn = []
+            num_ch_tokens = len(current_tokens)
+
+            for u, m in zip(reversed(self.chat_history[uid]["user"]), reversed(self.chat_history[uid]["bot"])):
+                ch = u + agent.seperator + m + agent.seperator
+                tokens = agent.tokenizer(ch)["input_ids"]
+
+                num_ch_tokens += len(tokens)
+                if num_ch_tokens < agent.maxlen:
+                    ch_for_current_turn.append(ch)
+                else:
+                    break
     
-        ch_for_current_turn = list(reversed(ch_for_current_turn))
-        return prefix + "".join(ch_for_current_turn) + text
+            ch_for_current_turn = list(reversed(ch_for_current_turn))
+            return prefix + "".join(ch_for_current_turn) + text
 
     def reset(self, uid: int) -> None:
-        self.chat_history[uid] = {
-            "user": [],
-            "bot": [],
-            "prefix": [],
-        }
+        with self.lock:
+            self.chat_history[uid] = {
+                "user": [],
+                "bot": [],
+                "prefix": [],
+            }
     
     def is_empty(self, uid: int) -> bool:
         return len(self.chat_history[uid]["user"]) == 0 and len(self.chat_history[uid]["bot"]) == 0 and len(self.chat_history[uid]["prefix"]) == 0
@@ -260,62 +271,73 @@ TOXIC_AGENT = pipeline("text-classification", model="unitary/unbiased-toxic-robe
 # initialize bottle web framework
 app = Bottle()
 
+# get threadpool
+pool = gevent.get_hub().threadpool
+
 # initialize chat history
 chat_history = ChatHistory()
+
+# initialize locks
+chat_lock = RLock()
+toxic_lock = RLock()
 
 # chat route
 @app.route("/chat", method="POST")
 def do_chat():
-    # cleanup request data
-    uid = request.json["id"]
-    user = request.json["user"]
-    uin = request.json["text"].strip()
-    print(f"[chat][{uid}, {user}]: {uin}")
+    if True:
+        # cleanup request data
+        uid = request.json["id"]
+        user = request.json["user"]
+        uin = request.json["text"].strip()
+        print(f"[chat][{uid}, {user}]: {uin}")
 
-    # sanity fixes
-    if uid not in chat_history.chat_history:
-        chat_history.reset(uid)
+        # sanity fixes
+        if uid not in chat_history.chat_history:
+            chat_history.reset(uid)
     
-    # init agent for user
-    if chat_history.is_empty(uid):
-        CHAT_AGENT.init(chat_history, uid, user)
+        # init agent for user
+        if chat_history.is_empty(uid):
+            CHAT_AGENT.init(chat_history, uid, user)
 
-    # generate input for model
-    model_input = chat_history.gen_model_input(uid, CHAT_AGENT.preprocess(uin, user), CHAT_AGENT)
-    chat_history.add_user(uid, uin)
+        # generate input for model
+        model_input = chat_history.gen_model_input(uid, CHAT_AGENT.preprocess(uin, user), CHAT_AGENT)
+        chat_history.add_user(uid, uin)
 
-    # generate output from model
-    reply = CHAT_AGENT.generate(model_input, user)
-    chat_history.add_bot(uid, reply)
-    print(f"[chat][wozey]: {reply}")
+        # generate output from model
+        reply = pool.spawn(CHAT_AGENT.generate, model_input, user).get()
+        chat_history.add_bot(uid, reply)
+        print(f"[chat][wozey]: {reply}")
 
-    gc.collect()
+        gc.collect()
 
-    # send back
-    return json.dumps({ "reply": reply })
+        # send back
+        return json.dumps({ "reply": reply })
 
 
 # reset chat history route
 @app.route("/reset_ch", method="POST")
 def do_reset_ch():
-    print(f"Reset history for: {request.json['id']}")
+    if True:
+        print(f"Reset history for: {request.json['id']}")
 
-    chat_history.reset(request.json["id"])
+        chat_history.reset(request.json["id"])
 
 
 # toxic analysis route
 @app.route("/toxic", method="POST")
 def do_toxic():
-    user = request.json["user"]
-    text = request.json["text"].strip()
-    print(f"[toxic][{user}]: {text}")
+    if True:
+        user = request.json["user"]
+        text = request.json["text"].strip()
+        print(f"[toxic][{user}]: {text}")
 
-    results = {res["label"]: res["score"] for res in TOXIC_AGENT(text)[0]}
-    print({k: round(results[k], 3) for k in results})
+        results = pool.spawn(TOXIC_AGENT, text).get()
+        results = {res["label"]: res["score"] for res in results[0]}
+        print({k: round(results[k], 3) for k in results})
 
-    return json.dumps(results)
+        return json.dumps(results)
 
 
 # run
 gc.collect()
-app.run(host="::", port=6769)
+app.run(server="gevent", host="::", port=6769)
