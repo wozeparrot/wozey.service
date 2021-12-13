@@ -1,21 +1,27 @@
 local https = require("https")
 local fs = require("fs")
 local os = require("os")
+local json = require("json")
 
 local discordia = require("discordia")
 discordia.extensions()
 local client = discordia.Client()
 
 -- CONFIG
-local prefix = ";"
+local config = {
+    prefix = ";",
+    default = {},
+}
+
+-- FEATURES (Comment to disable globally)
 local features = {
-    require("features/linker")(client, prefix),
-    require("features/weeb")(client, prefix),
-    require("features/economy")(client, prefix),
-    require("features/dynamic_voice_channels")(client, prefix),
-    require("features/poll")(client, prefix),
-    require("features/music")(client, prefix),
-    require("features/ai")(client, prefix)
+    require("features/linker")(client, config),
+    require("features/weeb")(client, config),
+    require("features/economy")(client, config),
+    require("features/dynamic_voice_channels")(client, config),
+    require("features/poll")(client, config),
+    require("features/music")(client, config),
+    require("features/ai")(client, config),
 }
 
 -- MAIN
@@ -66,6 +72,14 @@ end
 
 -- load features
 for i, feature in ipairs(features) do
+    -- register feature configs
+    if feature.config_name ~= nil and feature.configs ~= nil then
+        config.default[feature.config_name] = {}
+        for key, value in pairs(feature.configs) do
+            config.default[feature.config_name][key] = value
+        end
+    end
+
     -- register feature commands
     client:on('messageCreate', function(message)
         -- don't do anything if its ourself
@@ -81,8 +95,8 @@ for i, feature in ipairs(features) do
         local args = message.content:split(" ")
 
         -- find matching command
-        if not args[1]:startswith(prefix) then return end
-        local command = feature.commands[args[1]:gsub(prefix, "")]
+        if not args[1]:startswith(config.prefix) then return end
+        local command = feature.commands[args[1]:gsub(config.prefix, "")]
         if command then
             if command_visible_for_user(command, message.member) then
                 command.exec(message)
@@ -102,11 +116,11 @@ client:on("messageCreate", function(message)
 	if message.author == client.user then return end
     if message.member == nil then return end
     -- also don't do anything if its another bot
-    if message.author.bot then return end   
+    if message.author.bot then return end
 
     local args = message.content:split(" ")
 
-    if args[1] == prefix.."help" then
+    if args[1] == config.prefix.."help" then
         -- no feature specified so just list features
         if args[2] == nil or get_feature_by_name(args[2]) == nil then
             -- generate embed fields
@@ -137,7 +151,7 @@ client:on("messageCreate", function(message)
             for name, command in pairs(feature.commands) do
                 if command_visible_for_user(command, message.member) then
                     table.insert(fields, {
-                        name = prefix..name,
+                        name = config.prefix..name,
                         value = command.description,
                         inline = true,
                     })
@@ -153,6 +167,60 @@ client:on("messageCreate", function(message)
                 reference = { message = message, mention = true },
             })
         end
+    end
+end)
+
+-- data and config management
+function deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key)] = deepcopy(orig_value)
+        end
+        setmetatable(copy, deepcopy(getmetatable(orig)))
+    else
+        copy = orig
+    end
+    return copy
+end
+
+local config_channels = {}
+client:onSync("ready", function()
+    for _, guild in pairs(client.guilds) do
+        config[guild.id] = deepcopy(config.default)
+        for _, channel in pairs(guild.textChannels) do
+            if channel.name == "__wozey-data-store" then
+                if channel.topic ~= nil and channel.topic ~= "" then
+                    config[guild.id] = json.parse(channel.topic)
+                end
+                config_channels[guild.id] = channel
+                break
+            end
+        end
+    end
+end)
+
+client:on("messageCreate", function(message)
+    -- don't do anything on our own messages
+	if message.author == client.user then return end
+    if message.member == nil then return end
+    -- also don't do anything if its another bot
+    if message.author.bot then return end
+
+    if message.content == config.prefix.."default_config" then
+        message:reply("```\n"..json.stringify(config.default).."\n```")
+    end
+
+    if message.content == config.prefix.."reload_config" then
+        local channel = config_channels[message.guild.id]
+        if channel.topic ~= nil and channel.topic ~= "" then
+            config[message.guild.id] = json.parse(channel.topic)
+        else
+            config[message.guild.id] = {table.unpack(config.default)}
+        end
+        message:addReaction("✅")
     end
 end)
 

@@ -164,7 +164,7 @@ local function next_song(guild, force)
     update_queue(guild)
 end
 
-return function(client, prefix) return {
+return function(client, config) return {
     name = "Music",
     description = "Plays music in voice channels",
     commands = {

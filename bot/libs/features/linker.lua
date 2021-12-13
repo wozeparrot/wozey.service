@@ -21,7 +21,7 @@ local manga_query = [[
     }
 ]]
 
-return function(client, prefix) return {
+return function(client, config) return {
     name = "Linker",
     description = [[
         Links to mentioned things in chats:
@@ -37,7 +37,7 @@ return function(client, prefix) return {
             -- also don't do anything if its another bot
             if message.author.bot then return end
             -- don't check on our own commands
-            if message.content:sub(1, 1) == prefix then return end
+            if message.content:sub(1, 1) == config.prefix then return end
 
             -- match for curly braces to search anime
             for match in message.content:gmatch("$%b{}") do

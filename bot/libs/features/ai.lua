@@ -5,9 +5,13 @@ local timer = require("timer")
 
 local log = require("discordia").Logger(3, "%F %T")
 
-return function(client, prefix) return {
+return function(client, config) return {
     name = "AI",
     description = "Attempts to be a chattable bot",
+    config_name = "ai",
+    configs = {
+        ["toxic_automod"] = true,
+    },
     commands = {
         ["ai"] = {
             description = "Talk with the bot",
@@ -167,13 +171,16 @@ return function(client, prefix) return {
     },
     callbacks = {
         ["messageCreate"] = function(message)
+            -- don't do anything if this module is disabled
+            if not config[message.guild.id].ai.toxic_automod then return end
+
             -- don't do anything if its ourself
             if message.author == client.user then return end
             if message.member == nil then return end
             -- also don't do anything if its another bot
             if message.author.bot then return end
             -- don't check on our own commands
-            if message.content:sub(1, 1) == prefix then return end
+            if message.content:sub(1, 1) == config.prefix then return end
 
             -- TOXICITY DETECTOR
             -- generate post data

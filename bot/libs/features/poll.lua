@@ -31,7 +31,7 @@ local reactions = {
     "🇿"
 }
 
-return function(client, prefix) return {
+return function(client, config) return {
     name = "Polls",
     description = "Create polls that people can vote on",
     required_perms = { 0x00002000 },
