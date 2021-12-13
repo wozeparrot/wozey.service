@@ -218,7 +218,7 @@ client:on("messageCreate", function(message)
         if channel.topic ~= nil and channel.topic ~= "" then
             config[message.guild.id] = json.parse(channel.topic)
         else
-            config[message.guild.id] = {table.unpack(config.default)}
+            config[message.guild.id] = deepcopy(config.default)
         end
         message:addReaction("✅")
     end
