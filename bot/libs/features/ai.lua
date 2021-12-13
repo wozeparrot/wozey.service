@@ -150,7 +150,7 @@ return function(client, config) return {
                             table.insert(fields, {
                                 name = label,
                                 value = string.format("%f", score),
-                                inline = false,
+                                inline = true,
                             })
                         end
 
