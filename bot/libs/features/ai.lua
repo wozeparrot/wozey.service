@@ -212,7 +212,7 @@ return function(client, config) return {
                     local json_response = json.parse(response)
                     if json_response == nil then return end
 
-                    if json_response["severe_toxicity"] >= 0.7 or (json_response["toxicity"] >= 0.9 and json_response["obscene"] >= 0.5 and json_response["insult"] >= 0.75) or (json_response["toxicity"] >= 0.85 and json_response["threat"] >= 0.85) then
+                    if json_response["severe_toxicity"] >= 0.7 or (json_response["toxicity"] >= 0.95 and json_response["obscene"] >= 0.8 and json_response["insult"] >= 0.8) or (json_response["toxicity"] >= 0.85 and json_response["threat"] >= 0.85) then
                         message:reply({
                             content = "Whoa there! Thats really toxic. Can't have that around here!",
                             reference = { message = message, mention = true },
