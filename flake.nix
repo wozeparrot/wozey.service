@@ -53,6 +53,17 @@
             pkgs.writeShellScriptBin "luvit" ''
               ${luvi}/bin/luvi ${luvitSrc} -- "$@"
             '';
+          lit =
+            let
+              litSrc = pkgs.fetchgit {
+                url = "https://github.com/luvit/lit.git";
+                rev = "3.8.5";
+                sha256 = "sha256-8Fy1jIDNSI/bYHmiGPEJipTEb7NYCbN3LsrME23sLqQ=";
+              };
+            in
+            pkgs.writeShellScriptBin "lit" ''
+              ${luvi}/bin/luvi ${litSrc} -- "$@"
+            '';
         in
         rec {
           packages.wozey =
@@ -72,7 +83,7 @@
             propagatedBuildInputs = [ transformers tokenizers pytorch bottle gevent ];
           };
           defaultPackage = packages.wozey;
-          
+
           apps.wozey = flake-utils.lib.mkApp {
             drv = packages.wozey;
           };
@@ -83,9 +94,12 @@
 
           devShell = pkgs.mkShell {
             nativeBuildInputs = with pkgs; [
-              luvi luvit
-              
-              cargo rustc
+              luvi
+              lit
+              luvit
+
+              cargo
+              rustc
               libtorch-bin
             ];
           };
