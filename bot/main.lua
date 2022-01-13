@@ -20,7 +20,8 @@ local features = {
     require("features/economy")(client, config),
     require("features/dynamic_voice_channels")(client, config),
     require("features/poll")(client, config),
-    require("features/music")(client, config),
+    require("features/music_fast")(client, config),
+    -- require("features/music")(client, config),
     require("features/ai")(client, config),
 }
 

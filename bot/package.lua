@@ -7,7 +7,8 @@
     author = { name = "Woze Parrot", email = "wozeparrot@gmail.com" },
     homepage = "https://github.com/wozeparrot/wozey.service",
     dependencies = {
-        "SinisterRectus/discordia@2.9.1"
+        "SinisterRectus/discordia@2.9.1",
+        "creationix/coro-spawn@3.0.2"
     },
     files = {
       "**.lua",
