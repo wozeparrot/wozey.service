@@ -1,4 +1,3 @@
-local https = require("https")
 local fs = require("fs")
 local os = require("os")
 local json = require("json")
@@ -35,7 +34,7 @@ local function feature_visible_for_user(feature, member)
     if user == client.owner then return true else if feature.owner_only then return false end end
 
     if feature.required_perms then
-        for i, perm in ipairs(feature.required_perms) do
+        for _, perm in ipairs(feature.required_perms) do
             if not member:hasPermission(perm) then
                 return false
             end
@@ -51,7 +50,7 @@ local function command_visible_for_user(command, member)
     if user == client.owner then return true else if command.owner_only then return false end end
 
     if command.required_perms then
-        for i, perm in ipairs(command.required_perms) do
+        for _, perm in ipairs(command.required_perms) do
             if not member:hasPermission(perm) then
                 return false
             end
@@ -62,7 +61,7 @@ local function command_visible_for_user(command, member)
 end
 
 local function get_feature_by_name(name)
-    for i, feature in ipairs(features) do
+    for _, feature in ipairs(features) do
         if feature.name:lower() == name:lower() then
             return feature
         end
@@ -72,7 +71,7 @@ local function get_feature_by_name(name)
 end
 
 -- load features
-for i, feature in ipairs(features) do
+for _, feature in ipairs(features) do
     -- register feature configs
     if feature.config_name ~= nil and feature.configs ~= nil then
         config.default[feature.config_name] = {}
@@ -113,20 +112,20 @@ end
 
 -- help command
 client:on("messageCreate", function(message)
-	-- don't do anything on our own messages
-	if message.author == client.user then return end
+    -- don't do anything on our own messages
+    if message.author == client.user then return end
     if message.member == nil then return end
     -- also don't do anything if its another bot
     if message.author.bot then return end
 
     local args = message.content:split(" ")
 
-    if args[1] == config.prefix.."help" then
+    if args[1] == config.prefix .. "help" then
         -- no feature specified so just list features
         if args[2] == nil or get_feature_by_name(args[2]) == nil then
             -- generate embed fields
             local fields = {}
-            for i, feature in ipairs(features) do
+            for _, feature in ipairs(features) do
                 if feature_visible_for_user(feature, message.member) then
                     table.insert(fields, {
                         name = feature.name,
@@ -152,7 +151,7 @@ client:on("messageCreate", function(message)
             for name, command in pairs(feature.commands) do
                 if command_visible_for_user(command, message.member) then
                     table.insert(fields, {
-                        name = config.prefix..name,
+                        name = config.prefix .. name,
                         value = command.description,
                         inline = true,
                     })
@@ -161,7 +160,7 @@ client:on("messageCreate", function(message)
 
             message:reply({
                 embed = {
-                    title = "Help ("..feature.name..")",
+                    title = "Help (" .. feature.name .. ")",
                     description = feature.description,
                     fields = fields,
                 },
@@ -205,16 +204,16 @@ end)
 
 client:on("messageCreate", function(message)
     -- don't do anything on our own messages
-	if message.author == client.user then return end
+    if message.author == client.user then return end
     if message.member == nil then return end
     -- also don't do anything if its another bot
     if message.author.bot then return end
 
-    if message.content == config.prefix.."default_config" then
-        message:reply("```\n"..json.stringify(config.default).."\n```")
+    if message.content == config.prefix .. "default_config" then
+        message:reply("```\n" .. json.stringify(config.default) .. "\n```")
     end
 
-    if message.content == config.prefix.."reload_config" then
+    if message.content == config.prefix .. "reload_config" then
         local channel = config_channels[message.guild.id]
         if channel.topic ~= nil and channel.topic ~= "" then
             config[message.guild.id] = json.parse(channel.topic)
@@ -231,11 +230,11 @@ local function main()
     os.execute("rm -r ./wrun")
     fs.mkdirSync("./wrun")
 
-	-- run
+    -- run
     local token_file = io.open(".token", "r")
-	local token = token_file:read()
-	token_file:close()
-	client:run("Bot "..token)
+    local token = token_file:read()
+    token_file:close()
+    client:run("Bot " .. token)
 
     -- set some stuff
     client:setGame("Send ;help... UwU")
