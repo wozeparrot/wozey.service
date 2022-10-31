@@ -100,6 +100,7 @@
               cargo
               rustc
               libtorch-bin
+              packages.wozey-compute
             ];
           };
         }

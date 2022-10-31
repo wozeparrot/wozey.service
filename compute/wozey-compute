@@ -1,19 +1,25 @@
 #!/usr/bin/env python
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+
+monkey.patch_all()
 
 import json
 import gc
 from abc import ABC, abstractmethod
 from typing import Any
-import operator
 
-from transformers import GPT2LMHeadModel, GPTNeoForCausalLM, GPT2TokenizerFast, BlenderbotForConditionalGeneration, BlenderbotTokenizer
+from transformers import (
+    GPT2LMHeadModel,
+    GPTNeoForCausalLM,
+    GPT2TokenizerFast,
+    BlenderbotForConditionalGeneration,
+    BlenderbotTokenizer,
+)
 from transformers import pipeline
-import torch
 
 import gevent
 from gevent.lock import RLock
-from bottle import Bottle, request, response
+from bottle import Bottle, request
 
 
 # --- CHAT HISTORY ---
@@ -46,7 +52,10 @@ class ChatHistory:
             ch_for_current_turn = []
             num_ch_tokens = len(current_tokens)
 
-            for u, m in zip(reversed(self.chat_history[uid]["user"]), reversed(self.chat_history[uid]["bot"])):
+            for u, m in zip(
+                reversed(self.chat_history[uid]["user"]),
+                reversed(self.chat_history[uid]["bot"]),
+            ):
                 ch = u + agent.seperator + m + agent.seperator
                 tokens = agent.tokenizer(ch)["input_ids"]
 
@@ -55,7 +64,7 @@ class ChatHistory:
                     ch_for_current_turn.append(ch)
                 else:
                     break
-    
+
             ch_for_current_turn = list(reversed(ch_for_current_turn))
             return prefix + "".join(ch_for_current_turn) + text
 
@@ -66,9 +75,13 @@ class ChatHistory:
                 "bot": [],
                 "prefix": [],
             }
-    
+
     def is_empty(self, uid: int) -> bool:
-        return len(self.chat_history[uid]["user"]) == 0 and len(self.chat_history[uid]["bot"]) == 0 and len(self.chat_history[uid]["prefix"]) == 0
+        return (
+            len(self.chat_history[uid]["user"]) == 0
+            and len(self.chat_history[uid]["bot"]) == 0
+            and len(self.chat_history[uid]["prefix"]) == 0
+        )
 
 
 # --- ChatAgents ---
@@ -78,11 +91,11 @@ class ChatAgent(ABC):
         self.maxlen = maxlen
         self.model = model
         self.tokenizer = tokenizer
-    
+
     @abstractmethod
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
         raise NotImplemented
-    
+
     @abstractmethod
     def preprocess(self, text: str, user: str) -> str:
         raise NotImplemented
@@ -102,7 +115,7 @@ class DialoGPTChatAgent(ChatAgent):
             model=model.eval(),
             tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
-    
+
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
         prefixes = [
             f"My name is {user} and your name is wozey.",
@@ -111,11 +124,11 @@ class DialoGPTChatAgent(ChatAgent):
 
         for prefix in prefixes:
             ch.add_prefix(uid, prefix)
-    
-    def preprocess(self, text: str, user: str) -> str:
+
+    def preprocess(self, text: str, _: str) -> str:
         return text + self.seperator
-    
-    def generate(self, text: str, user: str) -> str:
+
+    def generate(self, text: str, _: str) -> str:
         input_ids = self.tokenizer(
             text=text,
             return_tensors="pt",
@@ -134,7 +147,9 @@ class DialoGPTChatAgent(ChatAgent):
             use_cache=True,
         )
 
-        return self.tokenizer.decode(output_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True).strip()
+        return self.tokenizer.decode(
+            output_ids[:, input_ids.shape[-1] :][0], skip_special_tokens=True
+        ).strip()
 
 
 class GPTNeoChatAgent(ChatAgent):
@@ -147,7 +162,7 @@ class GPTNeoChatAgent(ChatAgent):
             model=model.eval(),
             tokenizer=GPT2TokenizerFast.from_pretrained(name),
         )
-    
+
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
         prefixes = [
             f"{user} and wozey start talking.",
@@ -156,10 +171,10 @@ class GPTNeoChatAgent(ChatAgent):
 
         for prefix in prefixes:
             ch.add_prefix(uid, prefix)
-    
+
     def preprocess(self, text: str, user: str) -> str:
         return f"{user}: {text}" + self.seperator + "wozey:"
-    
+
     def generate(self, text: str, user: str):
         input_ids = self.tokenizer(
             text=text,
@@ -185,7 +200,7 @@ class GPTNeoChatAgent(ChatAgent):
         )
 
         reply = self.tokenizer.decode(
-            output_ids[:, input_ids.shape[-1]:][0],
+            output_ids[:, input_ids.shape[-1] :][0],
             skip_special_tokens=True,
         ).strip()
 
@@ -198,7 +213,7 @@ class GPTNeoChatAgent(ChatAgent):
             "Wozey:",
         ]:
             reply = reply.replace(escape, "\n")
-        
+
         return reply.split("\n")[0].strip()
 
 
@@ -212,7 +227,7 @@ class BlenderBotChatAgent(ChatAgent):
             model=model.eval(),
             tokenizer=BlenderbotTokenizer.from_pretrained(name),
         )
-    
+
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
         prefixes = [
             f"My name is {user} and your name is wozey.",
@@ -222,10 +237,10 @@ class BlenderBotChatAgent(ChatAgent):
         for prefix in prefixes:
             ch.add_prefix(uid, prefix)
 
-    def preprocess(self, text: str, user: str) -> str:
+    def preprocess(self, text: str, _: str) -> str:
         return text + self.seperator
-    
-    def generate(self, text: str, user: str) -> str:
+
+    def generate(self, text: str, _: str) -> str:
         input_ids = self.tokenizer(
             text=text,
             return_tensors="pt",
@@ -244,7 +259,9 @@ class BlenderBotChatAgent(ChatAgent):
             use_cache=True,
         )
 
-        return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+        return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
+            0
+        ].strip()
 
 
 # --- CONFIG ---
@@ -265,7 +282,12 @@ CHAT_AGENT = DialoGPTChatAgent("S34NtheGuy/DialoGPT-medium-Glass_Of_Water")
 # CHAT_AGENT = BlenderBotChatAgent("facebook/blenderbot-400M-distill")
 
 # -- Toxic Agent Selection --
-TOXIC_AGENT = pipeline("text-classification", model="unitary/unbiased-toxic-roberta", function_to_apply="sigmoid", return_all_scores=True)
+TOXIC_AGENT = pipeline(
+    "text-classification",
+    model="unitary/unbiased-toxic-roberta",
+    function_to_apply="sigmoid",
+    top_k=None,
+)
 
 
 # --- MAIN ---
@@ -295,13 +317,15 @@ def do_chat():
         # sanity fixes
         if uid not in chat_history.chat_history:
             chat_history.reset(uid)
-    
+
         # init agent for user
         if chat_history.is_empty(uid):
             CHAT_AGENT.init(chat_history, uid, user)
 
         # generate input for model
-        model_input = chat_history.gen_model_input(uid, CHAT_AGENT.preprocess(uin, user), CHAT_AGENT)
+        model_input = chat_history.gen_model_input(
+            uid, CHAT_AGENT.preprocess(uin, user), CHAT_AGENT
+        )
         chat_history.add_user(uid, uin)
 
         # generate output from model
@@ -312,7 +336,7 @@ def do_chat():
         gc.collect()
 
         # send back
-        return json.dumps({ "reply": reply })
+        return json.dumps({"reply": reply})
 
 
 # reset chat history route
