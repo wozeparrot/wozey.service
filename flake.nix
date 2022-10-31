@@ -11,16 +11,15 @@
         let
           pkgs = import nixpkgs {
             inherit system;
-            config.allowUnfree = true;
           };
           luvi = pkgs.stdenv.mkDerivation rec {
             pname = "luvi";
-            version = "v2.13.0";
+            version = "v2.14.0";
             src = pkgs.fetchgit {
               url = "https://github.com/luvit/luvi.git";
               rev = version;
               leaveDotGit = false;
-              sha256 = "sha256-h9Xdm/+9X3AoqBj1LJftqn3+3PbdankfAJSBP3KnRgw=";
+              sha256 = "sha256-c1rvRDHSU23KwrfEAu+fhouoF16Sla6hWvxyvUb5/Kg=";
             };
 
             nativeBuildInputs = with pkgs; [
