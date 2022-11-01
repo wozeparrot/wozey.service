@@ -113,13 +113,13 @@ class DialoGPTChatAgent(ChatAgent):
             seperator="<|endoftext|>",
             maxlen=128,
             model=model.eval(),
-            tokenizer=GPT2TokenizerFast.from_pretrained(name),
+            tokenizer=GPT2TokenizerFast.from_pretrained(name, padding_side="left"),
         )
 
     def init(self, ch: ChatHistory, uid: int, user: str) -> None:
         prefixes = [
-            f"My name is {user} and your name is wozey.",
-            f"Hello {user}. I am wozey.",
+            f"My name is {user} and what is your name?",
+            f"Welcome {user}. I am wozey.",
         ]
 
         for prefix in prefixes:
@@ -137,13 +137,17 @@ class DialoGPTChatAgent(ChatAgent):
         output_ids = self.model.generate(
             input_ids=input_ids,
             pad_token_id=self.tokenizer.eos_token_id,
-            max_length=self.maxlen * 2,
-            num_beams=5,
-            top_k=20,
-            top_p=None,
+            max_length=self.maxlen,
+            num_beams=15,
+            do_sample=True,
+            top_k=80,
+            top_p=0.8,
+            typical_p=0.9,
+            temperature=1.1,
             no_repeat_ngram_size=4,
-            length_penalty=1.35,
+            length_penalty=3.0,
             repetition_penalty=2.0,
+            max_time=5,
             use_cache=True,
         )
 
@@ -193,7 +197,6 @@ class GPTNeoChatAgent(ChatAgent):
             top_k=20,
             top_p=None,
             no_repeat_ngram_size=4,
-            diverse_penalty=1.5,
             length_penalty=0.7,
             repetition_penalty=2.0,
             use_cache=True,
