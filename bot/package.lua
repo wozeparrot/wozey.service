@@ -1,4 +1,4 @@
-  return {
+return {
     name = "wozeparrot/wozey.service",
     version = "0.1.0",
     description = "A Opinionated Discord Bot",
@@ -7,12 +7,11 @@
     author = { name = "Woze Parrot", email = "wozeparrot@gmail.com" },
     homepage = "https://github.com/wozeparrot/wozey.service",
     dependencies = {
-        "SinisterRectus/discordia@2.9.1",
+        "SinisterRectus/discordia@2.10.0-1",
         "creationix/coro-spawn@3.0.2"
     },
     files = {
-      "**.lua",
-      "!test*"
+        "**.lua",
+        "!test*"
     }
-  }
-  
+}
