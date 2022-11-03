@@ -1,8 +1,6 @@
 local uv = require("uv")
 local yield, resume, running = coroutine.yield, coroutine.resume, coroutine.running
 local fs = require("fs")
-local path = require("path")
-local json = require("json")
 local time = require("discordia").Time
 local stopwatch = require("discordia").Stopwatch
 
