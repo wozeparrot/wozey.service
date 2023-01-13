@@ -20,7 +20,9 @@ local repemu = {}
 local volume = {}
 
 local function update_queue(guild)
-    if not queued[guild] then return end
+    if not queued[guild] then
+        return
+    end
 
     -- fetch current song
     if queued[guild][1] and queued[guild][1].dl == 0 then
@@ -125,7 +127,8 @@ local function next_song(guild, force)
     update_queue(guild)
 end
 
-return function(client, config) return {
+return function(client, config)
+    return {
         name = "Music",
         description = "Plays music in voice channels",
         commands = {
@@ -149,15 +152,18 @@ return function(client, config) return {
                         local stop = false
                         local thread = running()
                         local stdout = uv.new_pipe(false)
-                        local handle, pid = assert(uv.spawn("yt-dlp", {
-                            args = { "-O", "%(title)s|||||%(duration)s", "--no-playlist", url },
-                            stdio = { 0, stdout, 2 }
-                        }, function(code, signal)
-                            if code ~= 0 or signal ~= 0 then
-                                stop = true
-                            end
-                            resume(thread)
-                        end), "is yt-dlp installed and on $PATH?")
+                        local handle, pid = assert(
+                            uv.spawn("yt-dlp", {
+                                args = { "-O", "%(title)s|||||%(duration)s", "--no-playlist", url },
+                                stdio = { 0, stdout, 2 },
+                            }, function(code, signal)
+                                if code ~= 0 or signal ~= 0 then
+                                    stop = true
+                                end
+                                resume(thread)
+                            end),
+                            "is yt-dlp installed and on $PATH?"
+                        )
 
                         -- read data from stdout of youtube-dl
                         local ret = ""
@@ -178,9 +184,9 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Queue",
-                                    description = "Invalid URL!"
+                                    description = "Invalid URL!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                             return
                         end
@@ -190,8 +196,11 @@ return function(client, config) return {
                         local raw_duration = tonumber(ret:split("|||||")[2])
 
                         -- check before queue
-                        if title and title ~= "NA" and raw_duration and
-                            (raw_duration <= 900 or message.author == client.owner) then
+                        if title
+                            and title ~= "NA"
+                            and raw_duration
+                            and (raw_duration <= 900 or message.author == client.owner)
+                        then
                             local duration = time.fromSeconds(raw_duration):toString()
 
                             -- create array if not already created
@@ -206,9 +215,9 @@ return function(client, config) return {
                                     message:reply({
                                         embed = {
                                             title = "Music - Queue",
-                                            description = "Already Queued!"
+                                            description = "Already Queued!",
                                         },
-                                        reference = { message = message, mention = true }
+                                        reference = { message = message, mention = true },
                                     })
                                     return
                                 end
@@ -224,7 +233,7 @@ return function(client, config) return {
                                 user = message.author.tag,
                                 message = message,
                                 dl = 0,
-                                stream = nil
+                                stream = nil,
                             })
 
                             message:reply({
@@ -235,31 +244,31 @@ return function(client, config) return {
                                         {
                                             name = "Requested By",
                                             value = message.author.tag,
-                                            inline = true
+                                            inline = true,
                                         },
                                         {
                                             name = "Duration",
                                             value = duration,
-                                            inline = true
+                                            inline = true,
                                         },
                                         {
                                             name = "Will Play In",
                                             value = time.fromSeconds(before_duration):toString(),
-                                            inline = true
+                                            inline = true,
                                         },
                                         {
                                             name = "Queued In",
                                             value = sw:getTime():toString(),
-                                            inline = true
+                                            inline = true,
                                         },
                                         {
                                             name = "Queue ID",
                                             value = #queued[message.guild.id],
-                                            inline = true
-                                        }
-                                    }
+                                            inline = true,
+                                        },
+                                    },
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
 
                             -- update queue
@@ -268,21 +277,21 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Queue",
-                                    description = "Invalid URL / Duration Too Long!"
+                                    description = "Invalid URL / Duration Too Long!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                         end
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Queue",
-                                description = "Invalid URL!"
+                                description = "Invalid URL!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["qlist"] = {
                 description = "Queues a playlist for playback",
@@ -304,16 +313,23 @@ return function(client, config) return {
                         local stop = false
                         local thread = running()
                         local stdout = uv.new_pipe(false)
-                        local handle, pid = assert(uv.spawn("yt-dlp", {
-                            args = { "-O", "%(title)s|||||%(duration)s|||||%(url)s|||||%(playlist_index)s",
-                                "--flat-playlist", url },
-                            stdio = { 0, stdout, 2 }
-                        }, function(code, signal)
-                            if code ~= 0 or signal ~= 0 then
-                                stop = true
-                            end
-                            resume(thread)
-                        end), "is yt-dlp installed and on $PATH?")
+                        local handle, pid = assert(
+                            uv.spawn("yt-dlp", {
+                                args = {
+                                    "-O",
+                                    "%(title)s|||||%(duration)s|||||%(url)s|||||%(playlist_index)s",
+                                    "--flat-playlist",
+                                    url,
+                                },
+                                stdio = { 0, stdout, 2 },
+                            }, function(code, signal)
+                                if code ~= 0 or signal ~= 0 then
+                                    stop = true
+                                end
+                                resume(thread)
+                            end),
+                            "is yt-dlp installed and on $PATH?"
+                        )
 
                         -- read data from stdout of youtube-dl
                         local ret = ""
@@ -334,9 +350,9 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Queue List",
-                                    description = "Invalid URL!"
+                                    description = "Invalid URL!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                             return
                         end
@@ -347,8 +363,12 @@ return function(client, config) return {
                         local failed = {}
                         local skipped = {}
                         for i, song in ipairs(songs) do
-                            if i == #songs then break end
-                            if #succeeded >= 9 and message.author ~= client.owner then break end
+                            if i == #songs then
+                                break
+                            end
+                            if #succeeded >= 9 and message.author ~= client.owner then
+                                break
+                            end
 
                             -- parse song data
                             local title = song:split("|||||")[1]
@@ -357,8 +377,12 @@ return function(client, config) return {
                             local index = song:split("|||||")[4]
 
                             -- check before queue
-                            if title and title ~= "NA" and raw_duration and url and
-                                (raw_duration <= 900 or message.author == client.owner) then
+                            if title
+                                and title ~= "NA"
+                                and raw_duration
+                                and url
+                                and (raw_duration <= 900 or message.author == client.owner)
+                            then
                                 local duration = time.fromSeconds(raw_duration):toString()
 
                                 -- create array if not already created
@@ -386,7 +410,7 @@ return function(client, config) return {
                                         user = message.author.tag,
                                         message = message,
                                         dl = 0,
-                                        stream = nil
+                                        stream = nil,
                                     })
                                     table.insert(succeeded, song)
 
@@ -398,36 +422,36 @@ return function(client, config) return {
                                                 {
                                                     name = "Requested By",
                                                     value = message.author.tag,
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Duration",
                                                     value = duration,
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Will Play In",
                                                     value = time.fromSeconds(before_duration):toString(),
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Queued In",
                                                     value = sw:getTime():toString(),
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Queue ID",
                                                     value = #queued[message.guild.id],
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Playlist ID",
                                                     value = index,
-                                                    inline = true
-                                                }
-                                            }
+                                                    inline = true,
+                                                },
+                                            },
                                         },
-                                        reference = { message = message, mention = true }
+                                        reference = { message = message, mention = true },
                                     })
 
                                     -- update queue
@@ -442,21 +466,25 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Queue List",
-                                description = "Succeeded: " ..
-                                    #succeeded .. " | Failed: " .. #failed .. " | Skipped: " .. #skipped
+                                description = "Succeeded: "
+                                    .. #succeeded
+                                    .. " | Failed: "
+                                    .. #failed
+                                    .. " | Skipped: "
+                                    .. #skipped,
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Queue List",
-                                description = "Invalid URL!"
+                                description = "Invalid URL!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["qlistr"] = {
                 description = "Queues a playlist for playback (randomized)",
@@ -478,16 +506,24 @@ return function(client, config) return {
                         local stop = false
                         local thread = running()
                         local stdout = uv.new_pipe(false)
-                        local handle, pid = assert(uv.spawn("yt-dlp", {
-                            args = { "-O", "%(title)s|||||%(duration)s|||||%(url)s|||||%(playlist_index)s",
-                                "--flat-playlist", "--playlist-random", url },
-                            stdio = { 0, stdout, 2 }
-                        }, function(code, signal)
-                            if code ~= 0 or signal ~= 0 then
-                                stop = true
-                            end
-                            resume(thread)
-                        end), "is yt-dlp installed and on $PATH?")
+                        local handle, pid = assert(
+                            uv.spawn("yt-dlp", {
+                                args = {
+                                    "-O",
+                                    "%(title)s|||||%(duration)s|||||%(url)s|||||%(playlist_index)s",
+                                    "--flat-playlist",
+                                    "--playlist-random",
+                                    url,
+                                },
+                                stdio = { 0, stdout, 2 },
+                            }, function(code, signal)
+                                if code ~= 0 or signal ~= 0 then
+                                    stop = true
+                                end
+                                resume(thread)
+                            end),
+                            "is yt-dlp installed and on $PATH?"
+                        )
 
                         -- read data from stdout of youtube-dl
                         local ret = ""
@@ -508,9 +544,9 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Queue List",
-                                    description = "Invalid URL!"
+                                    description = "Invalid URL!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                             return
                         end
@@ -521,8 +557,12 @@ return function(client, config) return {
                         local failed = {}
                         local skipped = {}
                         for i, song in ipairs(songs) do
-                            if i == #songs then break end
-                            if #succeeded >= 9 and message.author ~= client.owner then break end
+                            if i == #songs then
+                                break
+                            end
+                            if #succeeded >= 9 and message.author ~= client.owner then
+                                break
+                            end
 
                             -- parse song data
                             local title = song:split("|||||")[1]
@@ -531,8 +571,12 @@ return function(client, config) return {
                             local index = song:split("|||||")[4]
 
                             -- check before queue
-                            if title and title ~= "NA" and raw_duration and url and
-                                (raw_duration <= 900 or message.author == client.owner) then
+                            if title
+                                and title ~= "NA"
+                                and raw_duration
+                                and url
+                                and (raw_duration <= 900 or message.author == client.owner)
+                            then
                                 local duration = time.fromSeconds(raw_duration):toString()
 
                                 -- create array if not already created
@@ -560,7 +604,7 @@ return function(client, config) return {
                                         user = message.author.tag,
                                         message = message,
                                         dl = 0,
-                                        stream = nil
+                                        stream = nil,
                                     })
                                     table.insert(succeeded, song)
 
@@ -572,36 +616,36 @@ return function(client, config) return {
                                                 {
                                                     name = "Requested By",
                                                     value = message.author.tag,
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Duration",
                                                     value = duration,
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Will Play In",
                                                     value = time.fromSeconds(before_duration):toString(),
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Queued In",
                                                     value = sw:getTime():toString(),
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Queue ID",
                                                     value = #queued[message.guild.id],
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Playlist ID",
                                                     value = index,
-                                                    inline = true
-                                                }
-                                            }
+                                                    inline = true,
+                                                },
+                                            },
                                         },
-                                        reference = { message = message, mention = true }
+                                        reference = { message = message, mention = true },
                                     })
 
                                     -- update queue
@@ -616,21 +660,25 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Queue List",
-                                description = "Succeeded: " ..
-                                    #succeeded .. " | Failed: " .. #failed .. " | Skipped: " .. #skipped
+                                description = "Succeeded: "
+                                    .. #succeeded
+                                    .. " | Failed: "
+                                    .. #failed
+                                    .. " | Skipped: "
+                                    .. #skipped,
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Queue List",
-                                description = "Invalid URL!"
+                                description = "Invalid URL!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["qlists"] = {
                 description = "Queues a selection of random songs from a playlist",
@@ -653,16 +701,24 @@ return function(client, config) return {
                         local stop = false
                         local thread = running()
                         local stdout = uv.new_pipe(false)
-                        local handle, pid = assert(uv.spawn("yt-dlp", {
-                            args = { "-O", "%(title)s|||||%(duration)s|||||%(url)s|||||%(playlist_index)s",
-                                "--flat-playlist", "--playlist-random", url },
-                            stdio = { 0, stdout, 2 }
-                        }, function(code, signal)
-                            if code ~= 0 or signal ~= 0 then
-                                stop = true
-                            end
-                            resume(thread)
-                        end), "is yt-dlp installed and on $PATH?")
+                        local handle, pid = assert(
+                            uv.spawn("yt-dlp", {
+                                args = {
+                                    "-O",
+                                    "%(title)s|||||%(duration)s|||||%(url)s|||||%(playlist_index)s",
+                                    "--flat-playlist",
+                                    "--playlist-random",
+                                    url,
+                                },
+                                stdio = { 0, stdout, 2 },
+                            }, function(code, signal)
+                                if code ~= 0 or signal ~= 0 then
+                                    stop = true
+                                end
+                                resume(thread)
+                            end),
+                            "is yt-dlp installed and on $PATH?"
+                        )
 
                         -- read data from stdout of youtube-dl
                         local ret = ""
@@ -683,9 +739,9 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Queue List",
-                                    description = "Invalid URL!"
+                                    description = "Invalid URL!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                             return
                         end
@@ -693,7 +749,9 @@ return function(client, config) return {
                         -- loop over playlist songs
                         local songs = ret:split("\n")
                         for i, song in ipairs(songs) do
-                            if i == #songs then break end
+                            if i == #songs then
+                                break
+                            end
 
                             -- parse song data
                             local title = song:split("|||||")[1]
@@ -702,8 +760,12 @@ return function(client, config) return {
                             local index = song:split("|||||")[4]
 
                             -- check before queue
-                            if title and title ~= "NA" and raw_duration and url and
-                                (raw_duration <= 900 or message.author == client.owner) then
+                            if title
+                                and title ~= "NA"
+                                and raw_duration
+                                and url
+                                and (raw_duration <= 900 or message.author == client.owner)
+                            then
                                 local duration = time.fromSeconds(raw_duration):toString()
 
                                 -- create array if not already created
@@ -730,7 +792,7 @@ return function(client, config) return {
                                         user = message.author.tag,
                                         message = message,
                                         dl = 0,
-                                        stream = nil
+                                        stream = nil,
                                     })
 
                                     message:reply({
@@ -741,36 +803,36 @@ return function(client, config) return {
                                                 {
                                                     name = "Requested By",
                                                     value = message.author.tag,
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Duration",
                                                     value = duration,
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Will Play In",
                                                     value = time.fromSeconds(before_duration):toString(),
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Queued In",
                                                     value = sw:getTime():toString(),
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Queue ID",
                                                     value = #queued[message.guild.id],
-                                                    inline = true
+                                                    inline = true,
                                                 },
                                                 {
                                                     name = "Playlist ID",
                                                     value = index,
-                                                    inline = true
-                                                }
-                                            }
+                                                    inline = true,
+                                                },
+                                            },
                                         },
-                                        reference = { message = message, mention = true }
+                                        reference = { message = message, mention = true },
                                     })
 
                                     -- update queue
@@ -788,12 +850,12 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Queue List",
-                                description = "Invalid URL/Invalid Count!"
+                                description = "Invalid URL/Invalid Count!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["list"] = {
                 description = "Lists currently queued music",
@@ -802,9 +864,9 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - List",
-                                description = "No Music Queued!"
+                                description = "No Music Queued!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                         return
                     end
@@ -845,7 +907,7 @@ return function(client, config) return {
                         table.insert(fields, {
                             name = name,
                             value = value,
-                            inline = true
+                            inline = true,
                         })
                     end
 
@@ -859,11 +921,11 @@ return function(client, config) return {
                         embed = {
                             title = "Music - List | Songs: " .. #queued[message.guild.id] .. " | Page: " .. page + 1,
                             description = "Queue Duration: " .. time.fromSeconds(total_duration):toString(),
-                            fields = fields
+                            fields = fields,
                         },
-                        reference = { message = message, mention = true }
+                        reference = { message = message, mention = true },
                     })
-                end
+                end,
             },
             ["np"] = {
                 description = "Shows curently playing song",
@@ -876,11 +938,11 @@ return function(client, config) return {
                                 fields = {
                                     {
                                         name = "Requested By",
-                                        value = client.user.tag
-                                    }
-                                }
+                                        value = client.user.tag,
+                                    },
+                                },
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         if played[message.guild.id] == nil then
@@ -895,24 +957,24 @@ return function(client, config) return {
                                     {
                                         name = "Requested By",
                                         value = queued[message.guild.id][1].user,
-                                        inline = true
+                                        inline = true,
                                     },
                                     {
                                         name = "Played",
                                         value = played[message.guild.id]:getTime():toString(),
-                                        inline = true
+                                        inline = true,
                                     },
                                     {
                                         name = "Duration",
                                         value = queued[message.guild.id][1].duration,
-                                        inline = true
-                                    }
-                                }
+                                        inline = true,
+                                    },
+                                },
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["play"] = {
                 description = "Plays queued music",
@@ -944,8 +1006,10 @@ return function(client, config) return {
                             coroutine.wrap(function()
                                 status[message.guild.id] = coroutine.running()
                                 while status[message.guild.id] do
-                                    if queued[message.guild.id] and queued[message.guild.id][1] and
-                                        queued[message.guild.id][1].dl == 1 then
+                                    if queued[message.guild.id]
+                                        and queued[message.guild.id][1]
+                                        and queued[message.guild.id][1].dl == 1
+                                    then
                                         -- send now playing message
                                         message.channel:send({
                                             embed = {
@@ -955,19 +1019,26 @@ return function(client, config) return {
                                                     {
                                                         name = "Requested By",
                                                         value = queued[message.guild.id][1].user,
-                                                        inline = true
+                                                        inline = true,
                                                     },
                                                     {
                                                         name = "Duration",
                                                         value = queued[message.guild.id][1].duration,
-                                                        inline = true
-                                                    }
-                                                }
+                                                        inline = true,
+                                                    },
+                                                },
                                             },
-                                            reference = { message = queued[message.guild.id][1].message, mention = false },
+                                            reference = {
+                                                message = queued[message.guild.id][1].message,
+                                                mention = false,
+                                            },
                                         })
-                                        log:log(3, "[music] Playing: %s | Url: %s", queued[message.guild.id][1].title,
-                                            queued[message.guild.id][1].url)
+                                        log:log(
+                                            3,
+                                            "[music] Playing: %s | Url: %s",
+                                            queued[message.guild.id][1].title,
+                                            queued[message.guild.id][1].url
+                                        )
 
                                         -- play song
                                         local difference = nil
@@ -975,9 +1046,11 @@ return function(client, config) return {
                                         played[message.guild.id]:reset()
                                         if queued[message.guild.id][1].stream ~= nil then
                                             if message.guild.connection then
-                                                difference = time.fromMilliseconds(message.guild.connection:playFFmpeg(queued
-                                                    [message.guild.id][1].stream)):toSeconds() -
-                                                    queued[message.guild.id][1].raw_duration
+                                                difference = time.fromMilliseconds(
+                                                    message.guild.connection:playFFmpeg(
+                                                        queued[message.guild.id][1].stream
+                                                    )
+                                                ):toSeconds() - queued[message.guild.id][1].raw_duration
                                                 log:log(3, "[music] Difference: %d", difference)
                                             else
                                                 break
@@ -987,8 +1060,10 @@ return function(client, config) return {
                                         end
 
                                         -- switch to next song
-                                        if not nexted[message.guild.id] and difference and
-                                            not (difference < 5 and difference > -5) then
+                                        if not nexted[message.guild.id]
+                                            and difference
+                                            and not (difference < 5 and difference > -5)
+                                        then
                                             break
                                         end
                                         if status[message.guild.id] and message.guild.connection then
@@ -1005,8 +1080,13 @@ return function(client, config) return {
                                     else
                                         -- waiting for song to download
                                         if status[message.guild.id] and message.guild.connection then
-                                            local f = io.open(uv.os_getenv("WOZEY_ROOT") ..
-                                                "/assets/music_waiting_" .. waitmu[message.guild.id] .. ".wav", "rb")
+                                            local f = io.open(
+                                                uv.os_getenv("WOZEY_ROOT")
+                                                .. "/assets/music_waiting_"
+                                                .. waitmu[message.guild.id]
+                                                .. ".wav",
+                                                "rb"
+                                            )
                                             if f then
                                                 f:seek("set", 44)
                                                 if message.guild.connection then
@@ -1019,8 +1099,10 @@ return function(client, config) return {
                                             break
                                         end
 
-                                        if status[message.guild.id] and nexted[message.guild.id] and
-                                            message.guild.connection then
+                                        if status[message.guild.id]
+                                            and nexted[message.guild.id]
+                                            and message.guild.connection
+                                        then
                                             next_song(message.guild.id, true)
                                         end
                                     end
@@ -1035,21 +1117,21 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Play",
-                                    description = "Already Playing Music!"
+                                    description = "Already Playing Music!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                         end
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Play",
-                                description = "Join a VC First!"
+                                description = "Join a VC First!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["stop"] = {
                 description = "Stops playing queued music",
@@ -1066,12 +1148,12 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Stop",
-                                description = "No Music Queued / No Music Playing!"
+                                description = "No Music Queued / No Music Playing!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["resume"] = {
                 description = "Resume previously playing music",
@@ -1084,12 +1166,12 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Resume",
-                                description = "No Music Playing!"
+                                description = "No Music Playing!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["pause"] = {
                 description = "Pauses currently playing music",
@@ -1102,22 +1184,24 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Pause",
-                                description = "No Music Playing!"
+                                description = "No Music Playing!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["next"] = {
                 description = "Skips to next queued song",
                 exec = function(message)
                     if status[message.guild.id] and queued[message.guild.id] and message.guild.connection then
                         -- only allow person who queued to skip their song
-                        if queued[message.guild.id][1].user == message.author.tag or message.author == client.owner or
-                            not
-                            message.guild.connection.channel.connectedMembers:find(function(a) return queued[
-                                message.guild.id][1].user == a.user.tag end) then
+                        if queued[message.guild.id][1].user == message.author.tag
+                            or message.author == client.owner
+                            or not message.guild.connection.channel.connectedMembers:find(function(a)
+                                return queued[message.guild.id][1].user == a.user.tag
+                            end)
+                        then
                             nexted[message.guild.id] = true
                             message.guild.connection:stopStream()
                             message:addReaction("✅")
@@ -1125,21 +1209,21 @@ return function(client, config) return {
                             message:reply({
                                 embed = {
                                     title = "Music - Next",
-                                    description = "You Didn't Queue This Song!"
+                                    description = "You Didn't Queue This Song!",
                                 },
-                                reference = { message = message, mention = true }
+                                reference = { message = message, mention = true },
                             })
                         end
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Next",
-                                description = "No Music Queued / No Music Playing!"
+                                description = "No Music Queued / No Music Playing!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["delete"] = {
                 description = "Deletes a song from the queue",
@@ -1147,12 +1231,17 @@ return function(client, config) return {
                     if queued[message.guild.id] then
                         local args = message.content:split(" ")
 
-                        if args[2] and tonumber(args[2]) and args[2] ~= "1" and
-                            queued[message.guild.id][tonumber(args[2])] ~= nil then
+                        if args[2]
+                            and tonumber(args[2])
+                            and args[2] ~= "1"
+                            and queued[message.guild.id][tonumber(args[2])] ~= nil
+                        then
                             local i = tonumber(args[2])
 
                             -- only allow person who queued to delete their song
-                            if queued[message.guild.id][i].user == message.author.tag or message.author == client.owner then
+                            if queued[message.guild.id][i].user == message.author.tag
+                                or message.author == client.owner
+                            then
                                 if queued[message.guild.id][i].dl == 2 then
                                     queued[message.guild.id][i].dl = 0
                                 end
@@ -1167,9 +1256,9 @@ return function(client, config) return {
                                 message:reply({
                                     embed = {
                                         title = "Music - Delete",
-                                        description = "You Didn't Queue This Song!"
+                                        description = "You Didn't Queue This Song!",
                                     },
-                                    reference = { message = message, mention = true }
+                                    reference = { message = message, mention = true },
                                 })
                             end
                         else
@@ -1177,8 +1266,9 @@ return function(client, config) return {
                             if args[2] == "1" then
                                 if not status[message.guild.id] and not message.guild.connection then
                                     -- only allow person who queued to delete their song
-                                    if queued[message.guild.id][1].user == message.author.tag or
-                                        message.author == client.owner then
+                                    if queued[message.guild.id][1].user == message.author.tag
+                                        or message.author == client.owner
+                                    then
                                         next_song(message.guild.id, true)
 
                                         message:addReaction("✅")
@@ -1186,27 +1276,27 @@ return function(client, config) return {
                                         message:reply({
                                             embed = {
                                                 title = "Music - Delete",
-                                                description = "You Didn't Queue This Song!"
+                                                description = "You Didn't Queue This Song!",
                                             },
-                                            reference = { message = message, mention = true }
+                                            reference = { message = message, mention = true },
                                         })
                                     end
                                 else
                                     message:reply({
                                         embed = {
                                             title = "Music - Delete",
-                                            description = "Song is currently playing! (use ;next)"
+                                            description = "Song is currently playing! (use ;next)",
                                         },
-                                        reference = { message = message, mention = true }
+                                        reference = { message = message, mention = true },
                                     })
                                 end
                             else
                                 message:reply({
                                     embed = {
                                         title = "Music - Delete",
-                                        description = "Invalid Queue ID!"
+                                        description = "Invalid Queue ID!",
                                     },
-                                    reference = { message = message, mention = true }
+                                    reference = { message = message, mention = true },
                                 })
                             end
                         end
@@ -1214,12 +1304,12 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Delete",
-                                description = "No Music Queued!"
+                                description = "No Music Queued!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["muw"] = {
                 description = "Changes waiting music",
@@ -1235,18 +1325,18 @@ return function(client, config) return {
                                 title = "Music - Waiting",
                                 description = "Changed Waiting Music To: " .. args[2],
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Waiting",
-                                description = "Invalid Waiting Music!"
+                                description = "Invalid Waiting Music!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["mul"] = {
                 description = "Sets loop mode",
@@ -1267,18 +1357,18 @@ return function(client, config) return {
                                 title = "Music - Loop",
                                 description = "Set Loop To: " .. args[2],
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Loop",
-                                description = "Invalid Loop State!"
+                                description = "Invalid Loop State!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["mur"] = {
                 description = "Sets repeat mode",
@@ -1299,18 +1389,18 @@ return function(client, config) return {
                                 title = "Music - Repeat",
                                 description = "Set Repeat To: " .. args[2],
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Repeat",
-                                description = "Invalid Repeat State!"
+                                description = "Invalid Repeat State!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["muv"] = {
                 description = "Changes music volume for not downloaded tracks",
@@ -1326,18 +1416,18 @@ return function(client, config) return {
                                 title = "Music - Volume",
                                 description = "Changed Music Volume To: " .. args[2],
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Volume",
-                                description = "Invalid Music Volume!"
+                                description = "Invalid Music Volume!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["mus"] = {
                 description = "Shuffles not downloaded tracks",
@@ -1347,8 +1437,8 @@ return function(client, config) return {
                         for i = #queued[message.guild.id], 2, -1 do
                             local j = math.random(i)
                             if i > 2 and j > 2 then
-                                queued[message.guild.id][i], queued[message.guild.id][j] = queued[message.guild.id][j],
-                                    queued[message.guild.id][i]
+                                queued[message.guild.id][i], queued[message.guild.id][j] =
+                                queued[message.guild.id][j], queued[message.guild.id][i]
                             end
                         end
 
@@ -1357,12 +1447,12 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Music - Shuffle",
-                                description = "No Music Queued!"
+                                description = "No Music Queued!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
+                end,
             },
             ["clear"] = {
                 description = "Clears the queue",
@@ -1376,42 +1466,49 @@ return function(client, config) return {
                         queued[message.guild.id] = nil
                     end
                     message:addReaction("✅")
-                end
+                end,
             },
             ["mum"] = {
                 description = "Swaps the places of two songs in the queue",
                 owner_only = true,
                 exec = function(message)
                     local args = message.content:split(" ")
-                    if not args[2] or not args[3] or args[2] == "1" or args[3] == "1" or args[2] == "2" or args[3] == "2"
-                        or not tonumber(args[2]) or not tonumber(args[2]) then
+                    if not args[2]
+                        or not args[3]
+                        or args[2] == "1"
+                        or args[3] == "1"
+                        or args[2] == "2"
+                        or args[3] == "2"
+                        or not tonumber(args[2])
+                        or not tonumber(args[2])
+                    then
                         message:reply({
                             embed = {
                                 title = "Music - Move",
-                                description = "Invalid Queued IDs!"
+                                description = "Invalid Queued IDs!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                         return
                     end
 
                     if queued[message.guild.id] then
-                        queued[message.guild.id][tonumber(args[2])], queued[message.guild.id][tonumber(args[3])] = queued
-                            [message.guild.id][tonumber(args[3])], queued[message.guild.id][tonumber(args[2])]
+                        queued[message.guild.id][tonumber(args[2])], queued[message.guild.id][tonumber(args[3])] =
+                        queued[message.guild.id][tonumber(args[3])], queued[message.guild.id][tonumber(args[2])]
 
                         message:addReaction("✅")
                     else
                         message:reply({
                             embed = {
                                 title = "Music - Move",
-                                description = "No Music Queued!"
+                                description = "No Music Queued!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                     end
-                end
-            }
+                end,
+            },
         },
-        callbacks = {}
+        callbacks = {},
     }
 end

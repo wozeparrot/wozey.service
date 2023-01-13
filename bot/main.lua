@@ -14,14 +14,16 @@ local config = {
 
 -- FEATURES (Comment to disable globally)
 local features = {
-    require("features/linker")(client, config),
-    require("features/weeb")(client, config),
-    require("features/economy")(client, config),
-    require("features/dynamic_voice_channels")(client, config),
-    require("features/poll")(client, config),
-    require("features/music_fast")(client, config),
     -- require("features/music")(client, config),
     require("features/ai")(client, config),
+    require("features/chatbot")(client, config),
+    require("features/dynamic_voice_channels")(client, config),
+    require("features/economy")(client, config),
+    require("features/impersonation")(client, config),
+    require("features/linker")(client, config),
+    require("features/music_fast")(client, config),
+    require("features/poll")(client, config),
+    require("features/weeb")(client, config),
 }
 
 -- MAIN
@@ -29,9 +31,17 @@ local features = {
 local function feature_visible_for_user(feature, member)
     local user = member.user
 
-    if feature.hidden then return false end
+    if feature.hidden then
+        return false
+    end
 
-    if user == client.owner then return true else if feature.owner_only then return false end end
+    if user == client.owner then
+        return true
+    else
+        if feature.owner_only then
+            return false
+        end
+    end
 
     if feature.required_perms then
         for _, perm in ipairs(feature.required_perms) do
@@ -47,7 +57,13 @@ end
 local function command_visible_for_user(command, member)
     local user = member.user
 
-    if user == client.owner then return true else if command.owner_only then return false end end
+    if user == client.owner then
+        return true
+    else
+        if command.owner_only then
+            return false
+        end
+    end
 
     if command.required_perms then
         for _, perm in ipairs(command.required_perms) do
@@ -81,21 +97,31 @@ for _, feature in ipairs(features) do
     end
 
     -- register feature commands
-    client:on('messageCreate', function(message)
+    client:on("messageCreate", function(message)
         -- don't do anything if its ourself
-        if message.author == client.user then return end
-        if message.member == nil then return end
+        if message.author == client.user then
+            return
+        end
+        if message.member == nil then
+            return
+        end
         -- also don't do anything if its another bot
-        if message.author.bot then return end
+        if message.author.bot then
+            return
+        end
 
         -- check if they can access the feature
-        if not feature_visible_for_user(feature, message.member) then return end
+        if not feature_visible_for_user(feature, message.member) then
+            return
+        end
 
         -- split into args
         local args = message.content:split(" ")
 
         -- find matching command
-        if not args[1]:startswith(config.prefix) then return end
+        if not args[1]:startswith(config.prefix) then
+            return
+        end
         local command = feature.commands[args[1]:gsub(config.prefix, "")]
         if command then
             if command_visible_for_user(command, message.member) then
@@ -113,10 +139,16 @@ end
 -- help command
 client:on("messageCreate", function(message)
     -- don't do anything on our own messages
-    if message.author == client.user then return end
-    if message.member == nil then return end
+    if message.author == client.user then
+        return
+    end
+    if message.member == nil then
+        return
+    end
     -- also don't do anything if its another bot
-    if message.author.bot then return end
+    if message.author.bot then
+        return
+    end
 
     local args = message.content:split(" ")
 
@@ -171,10 +203,10 @@ client:on("messageCreate", function(message)
 end)
 
 -- data and config management
-function deepcopy(orig)
+local function deepcopy(orig)
     local orig_type = type(orig)
     local copy
-    if orig_type == 'table' then
+    if orig_type == "table" then
         copy = {}
         for orig_key, orig_value in next, orig, nil do
             copy[deepcopy(orig_key)] = deepcopy(orig_value)
@@ -204,10 +236,16 @@ end)
 
 client:on("messageCreate", function(message)
     -- don't do anything on our own messages
-    if message.author == client.user then return end
-    if message.member == nil then return end
+    if message.author == client.user then
+        return
+    end
+    if message.member == nil then
+        return
+    end
     -- also don't do anything if its another bot
-    if message.author.bot then return end
+    if message.author.bot then
+        return
+    end
 
     if message.content == config.prefix .. "default_config" then
         message:reply("```\n" .. json.stringify(config.default) .. "\n```")
@@ -237,7 +275,7 @@ local function main()
     client:run("Bot " .. token)
 
     -- set some stuff
-    client:setGame("Send ;help... UwU")
+    client:setGame("Send ;help...")
 end
 
 main()

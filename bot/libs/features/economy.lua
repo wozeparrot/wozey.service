@@ -7,7 +7,9 @@ local working = {}
 local playing = {}
 
 local function get_role(member)
-    local role = member.roles:find(function(a) return a.name == "ᴥお金ᴥ" end)
+    local role = member.roles:find(function(a)
+        return a.name == "ᴥお金ᴥ"
+    end)
     -- if the role exists return it
     if role then
         return role
@@ -41,25 +43,26 @@ local function get_bet(message)
             message:reply({
                 embed = {
                     title = "Economy - Bet",
-                    description = "You Don't Have Enough Money For This Bet!"
+                    description = "You Don't Have Enough Money For This Bet!",
                 },
-                reference = { message = message, mention = true }
+                reference = { message = message, mention = true },
             })
         end
     else
         message:reply({
             embed = {
                 title = "Economy - Bet",
-                description = "Invalid Bet!"
+                description = "Invalid Bet!",
             },
-            reference = { message = message, mention = true }
+            reference = { message = message, mention = true },
         })
     end
 
     return nil
 end
 
-return function(client, config) return {
+return function(client, config)
+    return {
         name = "Economy",
         description = "Simulated server economy",
         commands = {
@@ -70,11 +73,11 @@ return function(client, config) return {
                     message:reply({
                         embed = {
                             title = "Economy - Money",
-                            description = "You Currently Have: $" .. get_money(role)
+                            description = "You Currently Have: $" .. get_money(role),
                         },
-                        reference = { message = message, mention = true }
+                        reference = { message = message, mention = true },
                     })
-                end
+                end,
             },
             ["work"] = {
                 description = "Gives you money after working for one hour",
@@ -83,10 +86,11 @@ return function(client, config) return {
                         message:reply({
                             embed = {
                                 title = "Economy - Work",
-                                description = "You are currently working for another " ..
-                                    (Time.fromHours(1) - working[message.author.id]:getTime()):toString() .. "!"
+                                description = "You are currently working for another " .. (
+                                    Time.fromHours(1) - working[message.author.id]:getTime()
+                                    ):toString() .. "!",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                         return
                     end
@@ -95,43 +99,48 @@ return function(client, config) return {
 
                     local role = get_role(message.member)
 
-                    timer.setTimeout(Time.fromHours(1):toMilliseconds(), coroutine.wrap(function()
-                        local gain = 150 + math.random(0, 100)
-                        set_money(role, get_money(role) + gain)
+                    timer.setTimeout(
+                        Time.fromHours(1):toMilliseconds(),
+                        coroutine.wrap(function()
+                            local gain = 150 + math.random(0, 100)
+                            set_money(role, get_money(role) + gain)
 
-                        message:reply({
-                            embed = {
-                                title = "Economy - Work",
-                                description = "You worked for one hour and got: $" .. gain
-                            },
-                            reference = { message = message, mention = true }
-                        })
+                            message:reply({
+                                embed = {
+                                    title = "Economy - Work",
+                                    description = "You worked for one hour and got: $" .. gain,
+                                },
+                                reference = { message = message, mention = true },
+                            })
 
-                        working[message.author.id] = nil
-                    end))
+                            working[message.author.id] = nil
+                        end)
+                    )
 
                     message:reply({
                         embed = {
                             title = "Economy - Work",
-                            description = "You are now working!"
+                            description = "You are now working!",
                         },
-                        reference = { message = message, mention = true }
+                        reference = { message = message, mention = true },
                     })
-                end
+                end,
             },
             ["dice"] = {
                 description = "Gamble money on dice rolls",
                 exec = function(message)
                     local bet = get_bet(message)
-                    if not bet then return end
+                    if not bet then
+                        return
+                    end
 
                     if playing[message.author.id] then
                         message:reply({
                             embed = {
                                 title = "Economy - Dice",
-                                description = "You are already playing a game"
+                                description = "You are already playing a game",
                             },
-                            reference = { message = message, mention = true }
+                            reference = { message = message, mention = true },
                         })
                         return
                     end
@@ -166,19 +175,21 @@ return function(client, config) return {
                     end
 
                     playing[message.author.id] = false
-                end
+                end,
             },
             ["ecr"] = {
                 description = "Resets the economy",
                 owner_only = true,
                 exec = function(message)
-                    for role in message.guild.roles:findAll(function(a) return a.name == "ᴥお金ᴥ" end) do
+                    for role in message.guild.roles:findAll(function(a)
+                        return a.name == "ᴥお金ᴥ"
+                    end) do
                         role:delete()
                     end
                     message:addReaction("✅")
-                end
+                end,
             },
         },
-        callbacks = {}
+        callbacks = {},
     }
 end

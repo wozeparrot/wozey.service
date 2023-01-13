@@ -1,4 +1,5 @@
-return function(client, config) return {
+return function(client, config)
+    return {
         name = "Dynamic Voice Channels",
         description = "Manages temporary voice channels",
         hidden = true,
@@ -18,8 +19,10 @@ return function(client, config) return {
                         -- set proper permissions on new_channel
                         category.permissionOverwrites:forEach(function(overwrite)
                             local new_channel_perms = new_channel:getPermissionOverwriteFor(overwrite:getObject())
-                            new_channel_perms:setPermissions(overwrite:getAllowedPermissions(),
-                                overwrite:getDeniedPermissions())
+                            new_channel_perms:setPermissions(
+                                overwrite:getAllowedPermissions(),
+                                overwrite:getDeniedPermissions()
+                            )
                         end)
 
                         -- move user to new_channel
@@ -33,7 +36,7 @@ return function(client, config) return {
                         channel:delete()
                     end
                 end
-            end
-        }
+            end,
+        },
     }
 end
