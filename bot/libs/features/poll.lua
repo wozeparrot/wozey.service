@@ -31,7 +31,7 @@ local reactions = {
     "🇿",
 }
 
-return function(client, config)
+return function(client, state)
     return {
         name = "Polls",
         description = "Create polls that people can vote on",

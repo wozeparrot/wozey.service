@@ -5,7 +5,7 @@ local timer = require("timer")
 
 local log = require("discordia").Logger(3, "%F %T")
 
-return function(client, config)
+return function(client, state)
     return {
         name = "AI",
         description = "Attempts to be a chattable bot",
@@ -186,7 +186,7 @@ return function(client, config)
                 end
 
                 -- don't do anything if this module is disabled
-                if not config[message.guild.id].ai.toxic_automod then
+                if not state[message.guild.id].s.config.ai.toxic_automod then
                     return
                 end
 
@@ -202,7 +202,7 @@ return function(client, config)
                     return
                 end
                 -- don't check on our own commands
-                if message.content:sub(1, 1) == config.prefix then
+                if message.content:sub(1, 1) == state[message.guild.id].s.config.global.prefix then
                     return
                 end
 

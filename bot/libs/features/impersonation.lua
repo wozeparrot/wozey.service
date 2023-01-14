@@ -1,4 +1,4 @@
-return function(client, config)
+return function(client, state)
     return {
         name = "Impersonation Blocker",
         description = "Blocks people from changing their name to impersonate another person",

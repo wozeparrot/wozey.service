@@ -3,7 +3,7 @@ local json = require("json")
 local url = require("url")
 local time = require("discordia").Time
 
-return function(client, config)
+return function(client, state)
     return {
         name = "Weeb",
         description = "Miscellaneous Weeb Stuff",

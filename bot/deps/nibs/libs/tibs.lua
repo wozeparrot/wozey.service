@@ -404,23 +404,19 @@ do
         local text = sub(json, start, index - 1)
         local num
         if string.match(text, "^-?[0-9]+$") then
-            local neg = false
+            local sign = I64(-1)
             local big = I64(0)
             for i = 1, #text do
                 if string.sub(text, i, i) == "-" then
-                    neg = true
+                    sign = I64(1)
                 else
-                    big = big * 10 - (byte(text, i) - 48)
+                    big = big * 10LL - I64(byte(text, i) - 48)
                 end
             end
-            if not neg then big = -big end
-            if I64(tonumber(big)) == big then
-                num = tonumber(big)
-            else
-                num = big
-            end
+
+            num = NibLib.tonumberMaybe(big *sign)
         else
-            num = tonumber(text)
+            num = tonumber(text,10)
         end
 
         return num, index
@@ -689,13 +685,13 @@ do
             b, index = nextToken(json, index)
             if not b then return Fail, index end
 
-            -- Allow trailing commas by checking agin for closing brace
+            -- Allow trailing commas by checking again for closing brace
             if b == 125 then -- `}`
                 index = index + 1
                 break
             end
 
-            -- Parse a single string as key
+            -- Parse a single value as key
             local key
             key, index = parseAny(json, index)
             if key == Fail then
@@ -832,8 +828,14 @@ do
         [9] = 116, --`\t`
     }
 
+    ---@param num number|ffi.cdata*
+    ---@return string
     local function encodeNumber(num)
-        return (tostring(I64(num)):gsub("[IUL]+", ""))
+        if NibLib.isWhole(num) then
+            return (tostring(I64(num)):gsub("[IUL]+", ""))
+        else
+            return tostring(num)
+        end
     end
 
     local function encodeString(str)

@@ -83,11 +83,6 @@ local function encode_pair(small, big)
     end
 end
 
-local function tonumberMaybe(n)
-    local nn = tonumber(n)
-    return nn == n and nn or n
-end
-
 --- Convert a signed 64 bit integer to an unsigned 64 bit integer using zigzag encoding
 ---@param num integer
 ---@return integer
@@ -169,10 +164,9 @@ end
 ---@return integer size of encoded bytes
 ---@return any bytes as parts
 function encode_any(val)
-
     local t = type(val)
     if t == "number" then
-        if val % 1 == 0 then
+        if NibLib.isWhole(val) then
             return encode_pair(ZIGZAG, encode_zigzag(val))
         else
             return encode_pair(FLOAT, encode_float(val))
@@ -249,11 +243,9 @@ function encode_list(list)
 end
 
 ---@param list Value[]
----@param tag number?
 ---@return integer
 ---@return any
-function encode_array(list, tag)
-    tag = tag or ARRAY
+function encode_array(list)
     local total = 0
     local body = {}
     local offsets = {}
@@ -265,7 +257,7 @@ function encode_array(list, tag)
     end
     local more, index = generate_array_index(offsets)
     total = total + more
-    local size, prefix = encode_pair(tag, total)
+    local size, prefix = encode_pair(ARRAY, total)
     return size + total, { prefix, index, body }
 end
 
@@ -273,7 +265,29 @@ end
 ---@return integer
 ---@return any
 function encode_scope(scope)
-    return encode_array(scope, SCOPE)
+    local total = 0
+
+    -- First encode the wrapped value
+    local valueSize, valueEntry = encode_any(scope[1])
+
+    -- Then encode the refs and record their relative offsets
+    local body = {}
+    local offsets = {}
+    for i = 2, #scope do
+        local v = scope[i]
+        local size, entry = encode_any(v)
+        body[i - 1] = entry
+        offsets[i - 1] = total
+        total = total + size
+    end
+
+    -- Generate index header and value header
+    local more, index = generate_array_index(offsets)
+    total = total + more + valueSize
+
+    -- combine everything
+    local size, prefix = encode_pair(SCOPE, total)
+    return size + total, { prefix, valueEntry, index, body }
 end
 
 ---@param map table<Value,Value>
@@ -378,12 +392,13 @@ local function decode_pair(read, offset)
     end
 end
 
----Convert an unsigned 64 bit integer to a signed 64 bit integer using zigzag encoding
+---Convert an unsigned 64 bit integer to a signed 64 bit integer using zigzag decoding
 ---@param num integer
 ---@return integer
 local function decode_zigzag(num)
     local i = I64(num)
-    return tonumberMaybe(bxor(rshift(i, 1), -band(i, 1)))
+    local o = bxor(rshift(i, 1), -band(i, 1))
+    return NibLib.tonumberMaybe(o)
 end
 
 --- Convert an unsigned 64 bit integer to a double precision floating point by casting the bits
@@ -742,34 +757,34 @@ function NibsTrie:__pairs()
 end
 
 ---@class DecodeScope
----@field parent DecodeScope?
 ---@field alpha number
 ---@field omega number
----@field width number
----@field count number
 
-local function decode_scope(read, offset, big, scope)
-    local alpha, width, count = decode_pair(read, offset)
-    -- nested Value is the last ref
-    local ptr = decode_pointer(read, alpha + width * (count - 1), width)
-    return get(read, alpha + width * count + ptr, {
-        parent = scope,
-        alpha = alpha,
+---@param read ByteProvider
+---@param offset number
+---@param big number
+---@return any
+---@return number
+local function decode_scope(read, offset, big)
+    return get(read, offset, {
+        alpha = skip(read, offset),
         omega = offset + big,
-        width = width,
-        count = count
     })
 end
 
 ---@param read ByteProvider
 ---@param scope? DecodeScope
----@param big integer
+---@param id integer
 ---@return any
-local function decode_ref(read, scope, big)
+local function decode_ref(read, scope, id)
     assert(scope, "Ref found outside of scope")
-    local ptr = decode_pointer(read, scope.alpha + big * scope.width, scope.width)
-    local payload = scope.alpha + scope.width * scope.count
-    local start = payload + ptr
+    local offset, width, count = decode_pair(read, scope.alpha)
+    assert(offset < scope.omega)
+    local ptr_offset = offset + id * width
+    assert(ptr_offset < scope.omega)
+    local ptr = decode_pointer(read, ptr_offset, width)
+    local start = offset + width * count + ptr
+    assert(start < scope.omega)
     return (get(read, start, scope))
 end
 
@@ -805,7 +820,7 @@ function get(read, offset, scope)
     elseif little == TRIE then
         return NibsTrie.new(read, offset, big, scope), offset + big
     elseif little == SCOPE then
-        return decode_scope(read, offset, big, scope), offset + big
+        return decode_scope(read, offset, big), offset + big
     else
         error(string.format('Unexpected nibs type: %s at %08x', little, start))
     end
@@ -829,6 +844,9 @@ end
 ---@param index_limit number
 function Nibs.autoIndex(value, index_limit)
     index_limit = index_limit or 10
+    -- TODO: index if the serialized size is above some threshold,
+    -- this is what matters for reducing chunk fetches
+    -- which matters more than overall data size
 
     ---@param o Value
     local function walk(o)
@@ -842,33 +860,19 @@ function Nibs.autoIndex(value, index_limit)
             return o
         end
         if NibLib.isArrayLike(o) then
-            if #o < index_limit then
-                for i = 1, #o do
-                    o[i] = walk(o[i])
-                end
-                return o
-            else
-                local r = Array.new()
-                for i = 1, #o do
-                    r[i] = walk(o[i])
-                end
-                return r
-            end
-        end
-        local count = 0
-        for _ in pairs(o) do count = count + 1 end
-        if count < index_limit then
-            for k, v in pairs(o) do
-                o[walk(k)] = walk(v)
-            end
-            return o
-        else
-            local r = Trie.new()
-            for k, v in pairs(o) do
-                r[walk(k)] = walk(v)
+            local r = #o < index_limit and o or Array.new()
+            for i = 1, #o do
+                r[i] = walk(o[i])
             end
             return r
         end
+        local count = 0
+        for _ in pairs(o) do count = count + 1 end
+        local r = count < index_limit and o or Trie.new()
+        for k, v in pairs(o) do
+            r[walk(k)] = walk(v)
+        end
+        return r
     end
 
     return walk(value)
@@ -880,8 +884,16 @@ end
 function Nibs.addRefs(value, refs)
     if #refs == 0 then return value end
     ---@param o Value
+    ---@param skipCheck boolean?
     ---@return Value
-    local function walk(o)
+    local function walk(o, skipCheck)
+        if not skipCheck then
+            for i, r in ipairs(refs) do
+                if r == o then
+                    return Ref.new(i - 1)
+                end
+            end
+        end
         if type(o) == "table" then
             if getmetatable(o) == Scope then return o end
             if NibLib.isArrayLike(o) then
@@ -897,16 +909,18 @@ function Nibs.addRefs(value, refs)
             end
             return m
         end
-        for i, r in ipairs(refs) do
-            if r == o then
-                return Ref.new(i - 1)
-            end
-        end
         return o
     end
 
-    refs[#refs + 1] = walk(value)
-    return Scope.new(refs)
+    local scope = {}
+
+    insert(scope, walk(value))
+
+    for i = 1, #refs do
+        insert(scope, walk(refs[i], true))
+    end
+
+    return Scope.new(scope)
 end
 
 ---Walk through a value and find duplicate values (sorted by frequency)

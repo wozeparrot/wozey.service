@@ -21,7 +21,7 @@ local manga_query = [[
     }
 ]]
 
-return function(client, config)
+return function(client, state)
     return {
         name = "Linker",
         description = [[
@@ -44,7 +44,7 @@ return function(client, config)
                     return
                 end
                 -- don't check on our own commands
-                if message.content:sub(1, 1) == config.prefix then
+                if message.content:sub(1, 1) == state[message.guild.id].s.config.global.prefix then
                     return
                 end
 

@@ -2,7 +2,7 @@ local log = require("discordia").Logger(3, "%F %T")
 
 local markov = require("systemd/markov")
 
-return function(client, config)
+return function(client, state)
     local chain = markov.new()
 
     local f = io.lines("markov.txt")
@@ -65,7 +65,7 @@ return function(client, config)
                     return
                 end
                 -- don't check on our own commands
-                if message.content:sub(1, 1) == config.prefix then
+                if message.content:sub(1, 1) == state[message.guild.id].s.config.global.prefix then
                     return
                 end
 

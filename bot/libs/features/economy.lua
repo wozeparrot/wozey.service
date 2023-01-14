@@ -61,7 +61,7 @@ local function get_bet(message)
     return nil
 end
 
-return function(client, config)
+return function(client, state)
     return {
         name = "Economy",
         description = "Simulated server economy",

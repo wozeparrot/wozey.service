@@ -1,4 +1,4 @@
-return function(client, config)
+return function(client, state)
     return {
         name = "Dynamic Voice Channels",
         description = "Manages temporary voice channels",

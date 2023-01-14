@@ -1,29 +1,50 @@
 local fs = require("fs")
 local os = require("os")
 local json = require("json")
+_G.json = json
 
+--@type types/discordia
 local discordia = require("discordia")
 discordia.extensions()
 local client = discordia.Client()
 
--- CONFIG
-local config = {
-    prefix = ";",
-    default = {},
+-- load enchant
+-- need to bypass some stuff that we don't have
+_G.logger = {
+    errorf = function(...)
+        print(...)
+    end,
+    infof = function(...)
+        print(...)
+    end,
 }
+local discordia_enchant = require("discordia_enchant")
+discordia_enchant.inject(client)
+
+local s = require("systemd/state")
+
+-- STATE
+local default_state = s.new()
+default_state.s.config = {
+    global = {
+        prefix = ";",
+    },
+}
+local state = {}
 
 -- FEATURES (Comment to disable globally)
 local features = {
-    -- require("features/music")(client, config),
-    require("features/ai")(client, config),
-    require("features/chatbot")(client, config),
-    require("features/dynamic_voice_channels")(client, config),
-    require("features/economy")(client, config),
-    require("features/impersonation")(client, config),
-    require("features/linker")(client, config),
-    require("features/music_fast")(client, config),
-    require("features/poll")(client, config),
-    require("features/weeb")(client, config),
+    -- require("features/music")(client, state),
+    require("features/ai")(client, state),
+    require("features/chatbot")(client, state),
+    require("features/dynamic_voice_channels")(client, state),
+    require("features/economy")(client, state),
+    require("features/impersonation")(client, state),
+    require("features/linker")(client, state),
+    require("features/music_fast")(client, state),
+    require("features/poll")(client, state),
+    require("features/quick_tools")(client, state),
+    require("features/weeb")(client, state),
 }
 
 -- MAIN
@@ -81,6 +102,12 @@ local function get_feature_by_name(name)
         if feature.name:lower() == name:lower() then
             return feature
         end
+
+        if feature.config_name ~= nil then
+            if feature.config_name:lower() == name:lower() then
+                return feature
+            end
+        end
     end
 
     return nil
@@ -90,9 +117,9 @@ end
 for _, feature in ipairs(features) do
     -- register feature configs
     if feature.config_name ~= nil and feature.configs ~= nil then
-        config.default[feature.config_name] = {}
+        default_state.s.config[feature.config_name] = {}
         for key, value in pairs(feature.configs) do
-            config.default[feature.config_name][key] = value
+            default_state.s.config[feature.config_name][key] = value
         end
     end
 
@@ -119,10 +146,11 @@ for _, feature in ipairs(features) do
         local args = message.content:split(" ")
 
         -- find matching command
-        if not args[1]:startswith(config.prefix) then
+        local prefix = state[message.guild.id].s.config.global.prefix
+        if not args[1]:startswith(prefix) then
             return
         end
-        local command = feature.commands[args[1]:gsub(config.prefix, "")]
+        local command = feature.commands[args[1]:gsub(prefix, "")]
         if command then
             if command_visible_for_user(command, message.member) then
                 command.exec(message)
@@ -152,9 +180,9 @@ client:on("messageCreate", function(message)
 
     local args = message.content:split(" ")
 
-    if args[1] == config.prefix .. "help" then
+    if args[1] == state[message.guild.id].s.config.global.prefix .. "help" then
         -- no feature specified so just list features
-        if args[2] == nil or get_feature_by_name(args[2]) == nil then
+        if args[2] == nil then
             -- generate embed fields
             local fields = {}
             for _, feature in ipairs(features) do
@@ -178,12 +206,23 @@ client:on("messageCreate", function(message)
         else -- feature specified so print feature specific help
             local feature = get_feature_by_name(args[2])
 
+            if feature == nil then
+                message:reply({
+                    embed = {
+                        title = "Error",
+                        description = "Feature not found.",
+                    },
+                    reference = { message = message, mention = true },
+                })
+                return
+            end
+
             -- generate embed fields
             local fields = {}
             for name, command in pairs(feature.commands) do
                 if command_visible_for_user(command, message.member) then
                     table.insert(fields, {
-                        name = config.prefix .. name,
+                        name = state[message.guild.id].s.config.global.prefix .. name,
                         value = command.description,
                         inline = true,
                     })
@@ -202,33 +241,23 @@ client:on("messageCreate", function(message)
     end
 end)
 
--- data and config management
-local function deepcopy(orig)
-    local orig_type = type(orig)
-    local copy
-    if orig_type == "table" then
-        copy = {}
-        for orig_key, orig_value in next, orig, nil do
-            copy[deepcopy(orig_key)] = deepcopy(orig_value)
-        end
-        setmetatable(copy, deepcopy(getmetatable(orig)))
-    else
-        copy = orig
-    end
-    return copy
-end
-
-local config_channels = {}
+-- state management
 client:onSync("ready", function()
     for _, guild in pairs(client.guilds) do
-        config[guild.id] = deepcopy(config.default)
+        state[guild.id] = s.new()
+        state[guild.id]:decode(default_state:encode())
+
         for _, channel in pairs(guild.textChannels) do
-            if channel.name == "__wozey-data-store" then
-                if channel.topic ~= nil and channel.topic ~= "" then
-                    config[guild.id] = json.parse(channel.topic)
+            if channel.name == "__wozey" then
+                if channel.topic ~= nil and channel.topid ~= "" then
+                    local root_msg = channel:getMessage(channel.topic)
+                    if root_msg ~= nil then
+                        local inital_state_message = channel:getMessage(root_msg.embed.fields[1].value)
+                        if inital_state_message ~= nil then
+                            state[guild.id]:decodeString(inital_state_message.content)
+                        end
+                    end
                 end
-                config_channels[guild.id] = channel
-                break
             end
         end
     end
@@ -242,23 +271,39 @@ client:on("messageCreate", function(message)
     if message.member == nil then
         return
     end
+
     -- also don't do anything if its another bot
     if message.author.bot then
         return
     end
 
-    if message.content == config.prefix .. "default_config" then
-        message:reply("```\n" .. json.stringify(config.default) .. "\n```")
+    -- check if this is the __wozey channel
+    if message.channel.name ~= "__wozey" then
+        return
     end
 
-    if message.content == config.prefix .. "reload_config" then
-        local channel = config_channels[message.guild.id]
-        if channel.topic ~= nil and channel.topic ~= "" then
-            config[message.guild.id] = json.parse(channel.topic)
-        else
-            config[message.guild.id] = deepcopy(config.default)
+    if message.content == state[message.guild.id].s.config.global.prefix .. "init" then
+        if message.channel.topic == nil or message.channel.topic == "" then
+            local root_msg = message.channel:send("uwu")
+            message.channel:setTopic(root_msg.id)
+
+            local encoded = state[message.guild.id]:encodeString()
+            local inital_state_message = message.channel:send(encoded)
+
+            root_msg:setEmbed({
+                title = "wozey.service",
+                description = "This is the root message for this server's wozey.service state. Do not delete this message. Do not change the channel topic.",
+                fields = {
+                    {
+                        name = "Initial State Message",
+                        value = inital_state_message.id,
+                    },
+                },
+            })
+            root_msg:setContent("")
         end
-        message:addReaction("✅")
+
+        message:delete()
     end
 end)
 

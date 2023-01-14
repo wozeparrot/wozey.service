@@ -9,7 +9,6 @@ return {
     dependencies = {
         "SinisterRectus/discordia@2.10.0-1",
         "creationix/coro-spawn@3.0.2",
-        "creationix/nibs@2.0.0",
     },
     files = {
         "**.lua",

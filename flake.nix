@@ -4,105 +4,107 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+  }:
     flake-utils.lib.eachDefaultSystem
-      (
-        system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
+    (
+      system: let
+        pkgs = import nixpkgs {
+          inherit system;
+        };
+        luvi = pkgs.stdenv.mkDerivation rec {
+          pname = "luvi";
+          version = "v2.14.0";
+          src = pkgs.fetchgit {
+            url = "https://github.com/luvit/luvi.git";
+            rev = version;
+            leaveDotGit = false;
+            sha256 = "sha256-c1rvRDHSU23KwrfEAu+fhouoF16Sla6hWvxyvUb5/Kg=";
           };
-          luvi = pkgs.stdenv.mkDerivation rec {
-            pname = "luvi";
-            version = "v2.14.0";
-            src = pkgs.fetchgit {
-              url = "https://github.com/luvit/luvi.git";
-              rev = version;
-              leaveDotGit = false;
-              sha256 = "sha256-c1rvRDHSU23KwrfEAu+fhouoF16Sla6hWvxyvUb5/Kg=";
-            };
 
-            nativeBuildInputs = with pkgs; [
-              git
-              cmake
-            ];
-            buildInputs = with pkgs; [
-              openssl
-            ];
+          nativeBuildInputs = with pkgs; [
+            git
+            cmake
+          ];
+          buildInputs = with pkgs; [
+            openssl
+          ];
 
-            configurePhase = ''
-              echo ${version} > VERSION
-              make regular-shared
-            '';
+          configurePhase = ''
+            echo ${version} > VERSION
+            make regular-shared
+          '';
 
-            installPhase = ''
-              mkdir -p $out/bin
-              install -p build/luvi $out/bin/
-            '';
+          installPhase = ''
+            mkdir -p $out/bin
+            install -p build/luvi $out/bin/
+          '';
+        };
+        luvit = let
+          luvitSrc = pkgs.fetchgit {
+            url = "https://github.com/luvit/luvit.git";
+            rev = "2.18.1";
+            leaveDotGit = false;
+            sha256 = "sha256-nxvzfiHURbNMkEqjtpO5Ja+miwX/2JfUc7b29mIY1xs=";
           };
-          luvit =
-            let
-              luvitSrc = pkgs.fetchgit {
-                url = "https://github.com/luvit/luvit.git";
-                rev = "2.18.1";
-                leaveDotGit = false;
-                sha256 = "sha256-nxvzfiHURbNMkEqjtpO5Ja+miwX/2JfUc7b29mIY1xs=";
-              };
-            in
-            pkgs.writeShellScriptBin "luvit" ''
-              ${luvi}/bin/luvi ${luvitSrc} -- "$@"
-            '';
-          lit =
-            let
-              litSrc = pkgs.fetchgit {
-                url = "https://github.com/luvit/lit.git";
-                rev = "3.8.5";
-                sha256 = "sha256-8Fy1jIDNSI/bYHmiGPEJipTEb7NYCbN3LsrME23sLqQ=";
-              };
-            in
-            pkgs.writeShellScriptBin "lit" ''
-              ${luvi}/bin/luvi ${litSrc} -- "$@"
-            '';
         in
-        rec {
-          packages.wozey =
-            let
-              wozeySrc = ./bot;
-            in
-            pkgs.writeShellScriptBin "wozey" ''
-              export PATH="${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${pkgs.ffmpeg-normalize}/bin:${pkgs.busybox}/bin"
-              LD_LIBRARY_PATH="${pkgs.libopus}/lib:${pkgs.libsodium}/lib" WOZEY_ROOT=${wozeySrc} ${luvit}/bin/luvit ${wozeySrc}/main.lua "$@"
-            '';
-          packages.wozey-compute = with pkgs.python3Packages; buildPythonApplication {
+          pkgs.writeShellScriptBin "luvit" ''
+            ${luvi}/bin/luvi ${luvitSrc} -- "$@"
+          '';
+        lit = let
+          litSrc = pkgs.fetchgit {
+            url = "https://github.com/luvit/lit.git";
+            rev = "3.8.5";
+            sha256 = "sha256-8Fy1jIDNSI/bYHmiGPEJipTEb7NYCbN3LsrME23sLqQ=";
+          };
+        in
+          pkgs.writeShellScriptBin "lit" ''
+            ${luvi}/bin/luvi ${litSrc} -- "$@"
+          '';
+      in rec {
+        packages.wozey = let
+          wozeySrc = ./bot;
+        in
+          pkgs.writeShellScriptBin "wozey" ''
+            export PATH="${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${pkgs.ffmpeg-normalize}/bin:${pkgs.busybox}/bin"
+            LD_LIBRARY_PATH="${pkgs.libopus}/lib:${pkgs.libsodium}/lib" WOZEY_ROOT=${wozeySrc} ${luvit}/bin/luvit ${wozeySrc}/main.lua "$@"
+          '';
+        packages.wozey-compute = with pkgs.python3Packages;
+          buildPythonApplication {
             pname = "wozey-compute";
             version = "0.1.0";
 
             src = ./compute;
 
-            propagatedBuildInputs = [ transformers tokenizers pytorch bottle gevent ];
+            propagatedBuildInputs = [transformers tokenizers pytorch bottle gevent];
           };
-          defaultPackage = packages.wozey;
+        defaultPackage = packages.wozey;
 
-          apps.wozey = flake-utils.lib.mkApp {
-            drv = packages.wozey;
-          };
-          apps.wozey-compute = flake-utils.lib.mkApp {
-            drv = packages.wozey-compute;
-          };
-          defaultApp = apps.wozey;
+        apps.wozey = flake-utils.lib.mkApp {
+          drv = packages.wozey;
+        };
+        apps.wozey-compute = flake-utils.lib.mkApp {
+          drv = packages.wozey-compute;
+        };
+        defaultApp = apps.wozey;
 
-          devShell = pkgs.mkShell {
-            nativeBuildInputs = with pkgs; [
-              luvi
-              lit
-              luvit
+        devShell = pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            luvi
+            lit
+            luvit
 
-              cargo
-              rustc
-              libtorch-bin
-              packages.wozey-compute
-            ];
-          };
-        }
-      );
+            cargo
+            rustc
+            libtorch-bin
+            packages.wozey-compute
+          ];
+
+          LD_LIBRARY_PATH = "${pkgs.libopus}/lib:${pkgs.libsodium}/lib";
+        };
+      }
+    );
 }
