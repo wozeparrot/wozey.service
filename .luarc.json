@@ -203,6 +203,7 @@
         "/nix/store/85332lxkaqv6r312mq9vz1jq2gapgdrz-vim-pack-dir/pack/myNeovimPackages/start/cmp-vsnip/after",
         "/nix/store/85332lxkaqv6r312mq9vz1jq2gapgdrz-vim-pack-dir/pack/myNeovimPackages/start/crates.nvim/after",
         "/nix/store/85332lxkaqv6r312mq9vz1jq2gapgdrz-vim-pack-dir/pack/myNeovimPackages/start/stefanos82-nelua.vim-ff0a733a586ef0b48cda4999170ed4ca1653a144/after",
-        "${3rd}/luassert/library"
+        "${3rd}/luassert/library",
+        "${3rd}/luv/library"
     ]
 }

@@ -7,7 +7,7 @@ return {
     author = { name = "Woze Parrot", email = "wozeparrot@gmail.com" },
     homepage = "https://github.com/wozeparrot/wozey.service",
     dependencies = {
-        "SinisterRectus/discordia@2.10.0-1",
+        "SinisterRectus/discordia@2.11.2",
         "creationix/coro-spawn@3.0.2",
     },
     files = {
