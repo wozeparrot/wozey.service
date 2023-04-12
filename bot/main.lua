@@ -25,14 +25,12 @@ local state = {}
 
 -- FEATURES (Comment to disable globally)
 local features = {
-    -- require("features/music_fast")(client, state),
     -- require("features/ai")(client, state),
     require("features/chatbot")(client, state),
     require("features/dynamic_voice_channels")(client, state),
     require("features/economy")(client, state),
     require("features/impersonation")(client, state),
     require("features/linker")(client, state),
-    -- require("features/music")(client, state),
     require("features/music_player")(client, state),
     require("features/poll")(client, state),
     require("features/proc")(client, state),
