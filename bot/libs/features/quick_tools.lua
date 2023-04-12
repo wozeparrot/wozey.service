@@ -3,8 +3,8 @@ local log = require("discordia").Logger(3, "%F %T")
 return function(client, state)
     return {
         name = "Quick Tools",
-        description = "Simple stateless utility tools",
         config_name = "quick_tools",
+        description = "Simple stateless utility tools",
         commands = {
             ["qt_bdel"] = {
                 description = "Bulk delete messages",

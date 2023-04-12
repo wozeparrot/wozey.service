@@ -17,12 +17,15 @@ return function(client, state)
                         new_channel:moveDown()
 
                         -- set proper permissions on new_channel
+                        -- copy permissions from category
                         category.permissionOverwrites:forEach(function(overwrite)
-                            local new_channel_perms = new_channel:getPermissionOverwriteFor(overwrite:getObject())
-                            new_channel_perms:setPermissions(
-                                overwrite:getAllowedPermissions(),
-                                overwrite:getDeniedPermissions()
-                            )
+                            local new_channel_perms = new_channel:getPermissionOverwriteFor(overwrite)
+                            if new_channel_perms ~= nil then
+                                new_channel_perms:setPermissions(
+                                    overwrite:getAllowedPermissions(),
+                                    overwrite:getDeniedPermissions()
+                                )
+                            end
                         end)
 
                         -- move user to new_channel
