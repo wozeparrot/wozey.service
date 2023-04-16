@@ -7,3 +7,5 @@ discordia.log
 result
 wrun/
 target/
+__pycache__/
+output.wav

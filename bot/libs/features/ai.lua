@@ -1,19 +1,173 @@
 local http = require("http")
 local json = require("json")
-local url = require("url")
-local timer = require("timer")
+local uv = require("uv")
+local ffi = require("ffi")
 
 local log = require("discordia").Logger(3, "%F %T")
+
+local ai_state = {}
+
+local function ensure_state_exists(guild)
+    if not ai_state[guild.id] then
+        ai_state[guild.id] = {}
+    end
+
+    local running = coroutine.running()
+    if not ai_state[guild.id].sock then
+        ai_state[guild.id].sock = uv.new_tcp()
+        ai_state[guild.id].sock:connect("127.0.0.1", 6768, function(err)
+            if err then
+                log:log(1, "failed to connect to compute server (Is it online?): %s", err)
+                ai_state[guild.id].sock:shutdown()
+                ai_state[guild.id].sock = nil
+            end
+
+            coroutine.resume(running)
+        end)
+        -- set tcp no delay
+        ai_state[guild.id].sock:nodelay(true)
+    end
+    -- wait for the socket to connect
+    coroutine.yield()
+end
 
 return function(client, state)
     return {
         name = "AI",
-        description = "Attempts to be a chattable bot",
+        description = "Extends the server with the POWER of AI",
         config_name = "ai",
         configs = {
-            ["toxic_automod"] = true,
+            ["toxic_automod"] = false,
         },
         commands = {
+            ["aivc"] = {
+                description = "Talk with the bot in a voice channel",
+                exec = function(message)
+                    -- open a libuv socket to the compute server
+                    ensure_state_exists(message.guild)
+                    local sock = ai_state[message.guild.id].sock
+                    if not sock then
+                        message:addReaction("🛑")
+                        return
+                    end
+
+                    if message.guild.connection then
+                        message:reply({
+                            embed = {
+                                title = "AI - `aivc`",
+                                description = "I'm already in a voice channel!",
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                        return
+                    end
+
+                    local voice_channel = message.member.voiceChannel
+                    if not voice_channel then
+                        message:reply({
+                            embed = {
+                                title = "AI - `aivc`",
+                                description = "You're not in a voice channel!",
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                        return
+                    end
+
+                    local connection = voice_channel:join()
+                    if not connection then
+                        message:reply({
+                            embed = {
+                                title = "AI - `aivc`",
+                                description = "I couldn't join the voice channel!",
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                        return
+                    end
+
+                    -- subscribe to the voice data emitter
+                    connection:on("userVoiceData", function(user, pcm)
+                        if user == client.owner then
+                            sock:write(ffi.string(pcm, 960 * 2 * 2))
+                        end
+                    end)
+
+                    -- read from the socket for detected commands
+                    sock:read_start(function(err, chunk)
+                        assert(not err, err)
+
+                        if chunk then
+                            local data = json.parse(chunk)
+                            if data then
+                                if data["command"] == "play one" then
+                                    coroutine.wrap(function()
+                                        message.channel:send(";play hell clown core topic")
+                                    end)()
+                                elseif data["command"] == "play despacito" then
+                                    coroutine.wrap(function()
+                                        message.channel:send(";play despacito justin bieber audio")
+                                    end)()
+                                elseif data["command"] == "play three" then
+                                    coroutine.wrap(function()
+                                        message.channel:send(";play never gonna give you up")
+                                    end)()
+                                elseif data["command"] == "stop" then
+                                    coroutine.wrap(function()
+                                        message.channel:send(";stop stop")
+                                    end)()
+                                end
+                            end
+                        end
+                    end)
+
+                    -- subscribe to the leave event
+                    connection:on("leftVoiceChannel", function(channel, _)
+                        if channel ~= voice_channel then
+                            return
+                        end
+                        sock:shutdown()
+                        ai_state[message.guild.id].sock = nil
+                    end)
+
+                    -- need to send some data to get the callback to fire
+                    connection:playPCM(
+                        (function(freq, amp)
+                            local h = freq * 2 * math.pi / 48000
+                            local a = amp * 32767
+                            local t = 0
+                            return function()
+                                local s = math.tan(t) * a
+                                t = t + h
+                                return s, s
+                            end
+                        end)(440, 1),
+                        100
+                    )
+                end,
+            },
+            ["aivcs"] = {
+                description = "Stop talking with the bot in a voice channel",
+                exec = function(message)
+                    if not message.guild.connection then
+                        message:reply({
+                            embed = {
+                                title = "AI - `aivcs`",
+                                description = "I'm not in a voice channel!",
+                            },
+                            reference = { message = message, mention = true },
+                        })
+                        return
+                    end
+
+                    ensure_state_exists(message.guild)
+                    if ai_state[message.guild.id].sock then
+                        ai_state[message.guild.id].sock:shutdown()
+                        ai_state[message.guild.id].sock = nil
+                    end
+                    message.guild.connection:close()
+                end,
+            },
             ["ai"] = {
                 description = "Talk with the bot",
                 exec = function(message)
@@ -22,7 +176,7 @@ return function(client, state)
                     if not args[2] then
                         message:reply({
                             embed = {
-                                title = "AI",
+                                title = "AI - `ai`",
                                 description = "You didn't say anything!",
                             },
                             reference = { message = message, mention = true },
@@ -78,6 +232,10 @@ return function(client, state)
                                     content = json_response.reply,
                                     reference = { message = message, mention = false },
                                 })
+
+                                if message.guild.connection then
+                                    message.guild.connection:playFFmpeg("compute/output.wav")
+                                end
                             end)
                         )
                     end)
@@ -108,7 +266,8 @@ return function(client, state)
                             ["Content-Length"] = #post_data,
                             ["Accept"] = "application/json",
                         },
-                    }, function(res) end)
+                    }, function(res)
+                    end)
                     -- write post data
                     req:write(post_data)
                     -- finish request
@@ -240,11 +399,9 @@ return function(client, state)
                                 return
                             end
 
-                            if json_response["severe_toxicity"] >= 0.7
-                                or
-                                (
-                                json_response["toxicity"] >= 0.95 and json_response["obscene"] >= 0.8 and
-                                    json_response["insult"] >= 0.8)
+                            if
+                                json_response["severe_toxicity"] >= 0.7
+                                or (json_response["toxicity"] >= 0.95 and json_response["obscene"] >= 0.8 and json_response["insult"] >= 0.8)
                                 or (json_response["toxicity"] >= 0.85 and json_response["threat"] >= 0.85)
                             then
                                 message:reply({

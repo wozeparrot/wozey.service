@@ -17,26 +17,23 @@ local fmt = setmetatable({}, {
 
 local FFmpegProcess = require("class")("FFmpegProcess")
 
-function FFmpegProcess:__init(path, rate, channels, extra_args)
+function FFmpegProcess:__init(path, rate, channels, pre_extra_args, post_extra_args)
     local stdout = uv.new_pipe(false)
 
-    local args = {
-        "-reconnect",
-        "1",
-        "-reconnect_streamed",
-        "1",
-        "-reconnect_delay_max",
-        "5",
-        "-reconnect_on_network_error",
-        "1",
-        "-reconnect_on_http_error",
-        "1",
-        "-xerror",
+    local args = {}
+    if pre_extra_args then
+        for _, arg in ipairs(pre_extra_args) do
+            table.insert(args, arg)
+        end
+    end
+    for _, arg in ipairs({
         "-i",
         path,
-    }
-    if extra_args then
-        for _, arg in ipairs(extra_args) do
+    }) do
+        table.insert(args, arg)
+    end
+    if post_extra_args then
+        for _, arg in ipairs(post_extra_args) do
             table.insert(args, arg)
         end
     end

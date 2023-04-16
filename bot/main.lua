@@ -10,6 +10,7 @@ local client = discordia.Client({
     bitrate = 128000,
     cacheAllMembers = true,
     gatewayIntents = 3276799,
+    -- logLevel = 4,
 })
 
 local s = require("systemd/state")
@@ -25,7 +26,7 @@ local state = {}
 
 -- FEATURES (Comment to disable globally)
 local features = {
-    -- require("features/ai")(client, state),
+    require("features/ai")(client, state),
     require("features/chatbot")(client, state),
     require("features/dynamic_voice_channels")(client, state),
     require("features/economy")(client, state),
@@ -119,16 +120,16 @@ for _, feature in ipairs(features) do
     -- register feature commands
     client:on("messageCreate", function(message)
         -- don't do anything if its ourself
-        if message.author == client.user then
-            return
-        end
+        -- if message.author == client.user then
+        --     return
+        -- end
         if message.member == nil then
             return
         end
         -- also don't do anything if its another bot
-        if message.author.bot then
-            return
-        end
+        -- if message.author.bot then
+        --     return
+        -- end
 
         -- check if they can access the feature
         if not feature_visible_for_user(feature, message.member) then

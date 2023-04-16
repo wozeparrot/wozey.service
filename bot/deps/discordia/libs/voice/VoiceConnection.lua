@@ -6,9 +6,11 @@ local PCMString = require("voice/streams/PCMString")
 local PCMStream = require("voice/streams/PCMStream")
 local PCMGenerator = require("voice/streams/PCMGenerator")
 local FFmpegProcess = require("voice/streams/FFmpegProcess")
+local Emitter = require("utils/Emitter")
 
 local uv = require("uv")
 local ffi = require("ffi")
+local bit = require("bit")
 local constants = require("constants")
 local opus = require("voice/opus") or {}
 local sodium = require("voice/sodium") or {}
@@ -35,7 +37,8 @@ local MS_PER_S = constants.MS_PER_S
 local max = math.max
 local hrtime = uv.hrtime
 local ffi_string = ffi.string
-local pack = string.pack -- luacheck: ignore
+local pack = string.pack     -- luacheck: ignore
+local unpack = string.unpack -- luacheck: ignore
 local format = string.format
 local insert = table.insert
 local running, resume, yield = coroutine.running, coroutine.resume, coroutine.yield
@@ -68,11 +71,17 @@ local function check(n, mn, mx)
     return n
 end
 
-local VoiceConnection, get = require("class")("VoiceConnection")
+local VoiceConnection, get = require("class")("VoiceConnection", Emitter)
 
 function VoiceConnection:__init(channel)
+    Emitter.__init(self)
+
     self._channel = channel
     self._pending = {}
+
+    self._ssrcMap = {}
+    -- need a decoder per ssrc
+    self._decoders = {}
 end
 
 function VoiceConnection:_prepare(key, socket)
@@ -135,6 +144,10 @@ function VoiceConnection:_cleanup(err)
     self._ready = nil
     self._channel._parent._connection = nil
     self._channel._connection = nil
+
+    -- emit leave event
+    self:emit("leftVoiceChannel", self._channel, err)
+
     self:_continue(nil, err or "connection closed")
 end
 
@@ -335,12 +348,12 @@ time elapsed while streaming and the returned string is a message detailing the
 reason why the stream stopped. For more information about using FFmpeg,
 see the [[voice]] page.
 ]=]
-function VoiceConnection:playFFmpeg(path, extra_args, duration)
+function VoiceConnection:playFFmpeg(path, pre_extra_args, post_extra_args, duration)
     if not self._ready then
         return nil, "Connection is not ready"
     end
 
-    local stream = FFmpegProcess(path, SAMPLE_RATE, CHANNELS, extra_args)
+    local stream = FFmpegProcess(path, SAMPLE_RATE, CHANNELS, pre_extra_args, post_extra_args)
 
     local elapsed, reason = self:_play(stream, duration)
     stream:close()
@@ -407,6 +420,105 @@ function VoiceConnection:stopStream()
     return yield()
 end
 
+function VoiceConnection:updateUserSsrc(user_id, ssrc)
+    if self._ssrcMap[ssrc] then
+        assert(self._ssrcMap[ssrc] == user_id, "ssrc already mapped to another user")
+    else
+        self._ssrcMap[ssrc] = user_id
+
+        -- setup opus decoder
+        local decoder = opus.Decoder(SAMPLE_RATE, CHANNELS)
+        self._decoders[ssrc] = {
+            decoder = decoder,
+            last_sequence = -1,
+        }
+    end
+end
+
+function VoiceConnection:removeUserSsrc(user_id)
+    for ssrc, id in pairs(self._ssrcMap) do
+        if id == user_id then
+            self._ssrcMap[ssrc] = nil
+            self._decoders[ssrc] = nil
+            return
+        end
+    end
+end
+
+function VoiceConnection:decrypt(packet)
+    -- nonce is first 12 bytes of packet + PADDING
+    local nonce = packet:sub(1, 12) .. PADDING
+
+    -- read header
+    local _, _, sequence, timestamp, ssrc = unpack(HEADER_FMT, packet)
+    local data = packet:sub(13)
+    local len = #data
+
+    -- decrypt the packet
+    local decrypted, decrypted_len = sodium.decrypt(data, len, nonce, self._key)
+
+    -- data offset for possible extended header
+    local offset = 0
+
+    -- check if this is an extended header
+    -- for extended header the bit at 000X is set
+    if bit.band(packet:byte(1), 0x10) ~= 0 then
+        -- read header length from packet
+        local header_length = unpack(">xxH", ffi.string(decrypted, decrypted_len))
+        offset = offset + 4 + (header_length * 4)
+    end
+
+    return decrypted + offset, tonumber(decrypted_len) - offset, sequence, timestamp, ssrc
+end
+
+function VoiceConnection:receivePacket(packet)
+    -- sanity check that we can still parse this packet
+    assert(bit.rshift(unpack("B", packet), 6) == 2, "version check failed")
+
+    -- ignore rtcp packets
+    local packet_type = unpack("xB", packet)
+    if 200 <= packet_type and packet_type <= 204 then
+        return
+    end
+
+    -- decrypt the packet
+    local decrypted, decrypted_len, sequence, _, ssrc = self:decrypt(packet)
+
+    -- ignore packets from unknown users
+    local user_id = self._ssrcMap[ssrc]
+    if not user_id then
+        return
+    end
+
+    local decoder = self._decoders[ssrc]
+    if not decoder then
+        return
+    end
+
+    -- ignore out of order packets
+    if (decoder.last_sequence > sequence) and (decoder.last_sequence - sequence <= 10) then
+        return
+    else
+        self._decoders[ssrc].last_sequence = sequence
+    end
+
+    -- check that we know this user
+    local user = self._client:getUser(user_id)
+    if not user then
+        return
+    end
+
+    -- attempt to decode the packet
+    local ok, pcm = pcall(function()
+        return decoder.decoder:decode(decrypted, decrypted_len, 960, 960 * 2 * 2)
+    end)
+    if not ok then
+        return
+    end
+
+    self:emit("userVoiceData", user, pcm)
+end
+
 --[=[
 @m close
 @t ws
@@ -418,9 +530,16 @@ methods, this must be called inside of a coroutine.
 function VoiceConnection:close()
     self:stopStream()
     if self._socket then
+        self._socket._udp:recv_stop()
         self._socket:disconnect()
     end
     local guild = self._channel._parent
+
+    self._ssrcMap = {}
+    self._decoders = {}
+
+    self:removeAllListeners("userVoiceData")
+
     return self._client._shards[guild.shardId]:updateVoice(guild._id)
 end
 

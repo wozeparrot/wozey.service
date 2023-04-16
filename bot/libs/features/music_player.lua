@@ -11,6 +11,7 @@ local mp_state = {}
 local function ensure_state_exists(guild)
     if not mp_state[guild.id] then
         mp_state[guild.id] = {
+            voice_channel = nil,
             songs = {},
             thread_handle = nil,
             tweaks = {
@@ -31,7 +32,12 @@ local function extract_song_info(url)
         local sdata = data:split(" |||||||||||||||| ")
 
         info.title = sdata[1]
-        info.duration = Time.fromSeconds(tonumber(sdata[2]))
+        local raw_time = tonumber(sdata[2])
+        if raw_time then
+            info.duration = Time.fromSeconds(raw_time)
+        else
+            info.duration = nil
+        end
 
         local urls = sdata[3]:split("\n")
         if #urls > 1 then
@@ -173,6 +179,7 @@ return function(client, state)
                     end
 
                     ensure_state_exists(message.guild)
+                    mp_state[message.guild.id].voice_channel = message.member.voiceChannel
 
                     -- calculate the time before this song will play
                     local prior_duration = 0
@@ -227,15 +234,28 @@ return function(client, state)
 
                     -- check if the bot is already connected to a voice channel
                     if mp_state[message.guild.id].thread_handle then
+                        -- resume the player thread
+                        coroutine.resume(mp_state[message.guild.id].thread_handle)
                         return
                     end
 
                     -- spawn player thread
                     mp_state[message.guild.id].thread_handle = coroutine.create(function()
                         while true do
+                            if not mp_state[message.guild.id].voice_channel then
+                                log:log(3, "No voice channel to play in, stopping player thread")
+                                mp_state[message.guild.id].thread_handle = nil
+                                return
+                            end
+
                             -- connect to the voice channel
                             local voice_connection =
-                                assert(message.member.voiceChannel:join(), "Failed to join voice channel")
+                                assert(mp_state[message.guild.id].voice_channel:join(), "Failed to join voice channel")
+
+                            -- wait for a song to be queued
+                            while #mp_state[message.guild.id].songs == 0 do
+                                coroutine.yield()
+                            end
 
                             -- get refreshed song info
                             local song = mp_state[message.guild.id].songs[1]
@@ -333,6 +353,18 @@ return function(client, state)
                                 return table.concat(filter_chain)
                             end
                             voice_connection:playFFmpeg(play_info.url, {
+                                "-reconnect",
+                                "1",
+                                "-reconnect_streamed",
+                                "1",
+                                "-reconnect_delay_max",
+                                "5",
+                                "-reconnect_on_network_error",
+                                "1",
+                                "-reconnect_on_http_error",
+                                "1",
+                                "-xerror",
+                            }, {
                                 "-i",
                                 uv.os_getenv("WOZEY_ROOT") .. "/assets/reverb.wav",
                                 "-filter_complex",
@@ -346,17 +378,6 @@ return function(client, state)
 
                             -- remove the song from the queue
                             table.remove(mp_state[message.guild.id].songs, 1)
-
-                            -- check if there are any more songs in the queue
-                            if #mp_state[message.guild.id].songs == 0 then
-                                -- disconnect from the voice channel
-                                voice_connection:close()
-
-                                -- clear the thread handle
-                                mp_state[message.guild.id].thread_handle = nil
-
-                                return
-                            end
                         end
                     end)
 
@@ -369,14 +390,22 @@ return function(client, state)
                 exec = function(message)
                     ensure_state_exists(message.guild)
 
+                    local args = message.content:split(" ")
+
                     -- check if the bot is connected to a voice channel
                     if mp_state[message.guild.id].thread_handle then
                         -- clear the queue
                         mp_state[message.guild.id].songs = {}
 
-                        -- kill the player thread
+                        -- stop the stream
                         message.guild.connection:stopStream()
-                        mp_state[message.guild.id].thread_handle = nil
+
+                        if not args[2] then
+                            -- kill the player thread
+                            mp_state[message.guild.id].voice_channel = nil
+                            mp_state[message.guild.id].thread_handle = nil
+                            message.guild.connection:close()
+                        end
 
                         -- react
                         message:addReaction("✅")
