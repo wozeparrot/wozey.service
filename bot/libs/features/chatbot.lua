@@ -31,8 +31,8 @@ return function(client, state)
 					end
 
 					local text = message.content:gsub(";chat ", "", 1)
-					log:log(3, "[chatbot] " .. message.member.name .. " said: " .. text)
 
+					log:log(3, "[chatbot] " .. message.member.name .. " said: " .. text)
 					chain:learn(text)
 
 					local response = chain:generate()
@@ -69,6 +69,9 @@ return function(client, state)
 					return
 				end
 
+				if message.content == "" then
+					return
+				end
 				log:log(3, "[chatbot] %s", message.member.name .. " said: " .. message.content)
 
 				chain:learn(message.content)
