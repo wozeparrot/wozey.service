@@ -409,6 +409,8 @@
                 doCheck = false;
               })
             ];
+
+            doCheck = false;
           };
         defaultPackage = packages.wozey;
 
