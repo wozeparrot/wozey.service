@@ -22,8 +22,8 @@ return function(client, state)
 					return
 				end
 
-				-- check if message contains "touch grass"
-				if message.content:lower():find("touch grass") then
+				-- check if message contains "touch grass" or "touching grass"
+				if message.content:lower():find("touch grass") or message.content:lower():find("touching grass") then
 					-- send message
 					message:reply({
 						content = "https://cdn.discordapp.com/attachments/966039307536175174/1086036941293752330/grass.mov",
