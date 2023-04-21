@@ -35,6 +35,8 @@ local function extract_song_info(url)
 		local raw_time = tonumber(sdata[2])
 		if raw_time then
 			info.duration = Time.fromSeconds(raw_time)
+		elseif sdata[2] == "NA" then
+			info.duration = Time.fromSeconds(0)
 		else
 			info.duration = nil
 		end
