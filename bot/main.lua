@@ -10,7 +10,7 @@ local client = discordia.Client({
 	bitrate = 128000,
 	cacheAllMembers = true,
 	gatewayIntents = 3276799,
-	-- logLevel = 4,
+	logLevel = 4,
 })
 
 local s = require("systemd/state")

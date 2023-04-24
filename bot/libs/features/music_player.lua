@@ -102,12 +102,18 @@ local function extract_song_info(url)
 	read_data_from_ytdlp()
 
 	if data == "" then
-		-- retry once
+		-- first retry
 		log:log(2, "Failed to extract song info, retrying")
 		read_data_from_ytdlp()
 
 		if data == "" then
-			return nil
+			-- second retry
+			log:log(2, "Failed to extract song info, retrying again")
+			read_data_from_ytdlp()
+
+			if data == "" then
+				return nil
+			end
 		end
 	end
 
@@ -184,12 +190,18 @@ local function extract_playlist_urls(url)
 	read_data_from_ytdlp()
 
 	if data == "" then
-		-- retry once
-		log:log(2, "Failed to extract song info, retrying")
+		-- first retry
+		log:log(2, "Failed to extract playlist info, retrying")
 		read_data_from_ytdlp()
 
 		if data == "" then
-			return nil
+			-- second retry
+			log:log(2, "Failed to extract playlist info, retrying again")
+			read_data_from_ytdlp()
+
+			if data == "" then
+				return nil
+			end
 		end
 	end
 
@@ -217,7 +229,7 @@ local function player_thread(message)
 		local play_info = nil
 		while not play_info do
 			song = mp_state[message.guild.id].songs[1]
-			if uv.now() - song.queue_time > 12000 then
+			if uv.now() - song.queue_time > 30000 then
 				log:log(3, "Attempting to extract refreshed info for song: %s in %s", song.url, message.guild.name)
 				play_info = extract_song_info(song.url)
 			else
