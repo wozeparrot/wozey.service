@@ -10,7 +10,7 @@ local client = discordia.Client({
 	bitrate = 128000,
 	cacheAllMembers = true,
 	gatewayIntents = 3276799,
-	logLevel = 4,
+	-- logLevel = 4,
 })
 
 local s = require("systemd/state")
@@ -27,7 +27,7 @@ local state = {}
 -- FEATURES (Comment to disable globally)
 local features = {
 	require("features/ai")(client, state),
-	require("features/chatbot")(client, state),
+	require("features/chain_continuity")(client, state),
 	require("features/dynamic_voice_channels")(client, state),
 	require("features/impersonation")(client, state),
 	require("features/linker")(client, state),
